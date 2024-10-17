@@ -1,0 +1,5 @@
+#     alpha (unitless)   molec wght (kg/mole)   H0 (M/atm)   H_exp (K)
+SO2            0.11                 64d-3                   1.4d0       2.9d3
+O3             0.002                48d-3                   1.1d-2      2.3d3
+H2SO4          0.07                 98d-3                   2.1d5       8.7d3
+O1D            0.0                  0.0                     0.0         0.0
