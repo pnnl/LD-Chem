@@ -11,22 +11,18 @@ def this_is_a_test():
     print('10:44 am')
     pass
 
-def plot_SS_diameters(trajectory, axis='height'):
+def plot_diameters(trajectory, axis='height'):
     
     # fix this -- make these into time series
     d_drys = []
     d_wets = []
     z = []
     S = []
-    P = []
-    T = []
     t = []
     for i in range(0, len(trajectory.parcel_states)):
         particle_population = trajectory.parcel_states[i].particle_population
         S.append(trajectory.parcel_states[i].S)
-        T.append(trajectory.parcel_states[i].T)
-        P.append(trajectory.parcel_states[i].P)
-        z.append(trajectory.parcel_states[i].w*trajectory.ts[i])
+        z.append(trajectory.parcel_states[i].z)
         t.append(trajectory.ts[i])
         
         temp_dry = []
@@ -40,47 +36,66 @@ def plot_SS_diameters(trajectory, axis='height'):
         d_wets.append(temp_wet)
     
     if axis == 'height':
-        plt.plot(np.array((d_wets))*1e6, z, '-b')
-        plt.xscale('log')
-        plt.xlabel('wet diameter (micron)')
-        plt.ylabel('altitude (m)')
-        plt.show()
-        
-        plt.plot(np.array((S))-1, z, '-r')
-        plt.xlabel('supersaturation')
-        plt.ylabel('altitude (m)')
-        plt.xlim(0,)
-        plt.show()
-        
-        # plt.plot(np.array((d_wets))/np.array((d_drys)), z, '-g')
-        # plt.xscale('log')
-        # plt.xlabel('wet diameter/dry diameter')
-        # plt.ylabel('altitude (m)')
-        # plt.show()
+        fig, ax = plt.subplots(1, 1)
+        ax2=ax.twiny()
+        ax2.spines['bottom'].set_color('blue')
+        ax2.spines['top'].set_color('red')
+        ax.tick_params(axis='x', which="both",color='blue', labelcolor='blue')
+        ax2.tick_params(axis='x', which="both",color='red', labelcolor='red')
+        ax.plot(np.array((d_wets))*1e6, z, '-b')
+        ax2.plot(S, z, '-r')
+        ax.set_xlabel(r'wet diameter ($\mu$m)', color='blue')
+        ax.set_xscale('log')
+        ax2.set_xlabel('saturation ratio', color='red')
+        ax2.set_xlim(1.0,)
+        ax.set_ylabel('altitude (m)')
+
     
     elif axis == 'time':
-        plt.plot(np.array((t))/60, np.array((d_wets))*1e6, '-b')
-        plt.ylabel('wet diameter (micron)')
-        plt.xlabel('time (min)')
-        plt.show()
-        
-        plt.plot(np.array((t))/60, np.array((S))-1, '-r')
-        plt.ylabel('supersaturation')
-        plt.xlabel('time (min)')
-        plt.xlim(0,)
-        plt.show()
-        
-        plt.plot(np.array((t))/60, np.array((d_wets))/np.array((d_drys)), '-g')
-        plt.ylabel('wet diameter/dry diameter')
-        plt.xlabel('time (min)')
-        plt.show()
+        fig, ax = plt.subplots(1, 1)
+        ax2=ax.twinx()
+        ax2.spines['left'].set_color('blue')
+        ax2.spines['right'].set_color('red')
+        ax.tick_params(axis='y', which="both",color='blue', labelcolor='blue')
+        ax2.tick_params(axis='y', which="both",color='red', labelcolor='red')
+        ax.plot(np.array((t))/60, np.array((d_wets))*1e6, '-b')
+        ax.set_yscale('log')
+        ax2.plot(np.array((t))/60, S, '-r')
+        ax.set_ylabel(r'wet diameter ($\mu$m)', color='blue')
+        ax2.set_ylabel('saturation ratio', color='red')
+        ax.set_xlabel('time (min)')
+
     
-    # print()
-    # print(np.max(SS))
-    # print()
-    # print(np.min(np.array((d_wets))/np.array((d_drys))))
+    return fig
+
+
+def plot_trajectory_values(trajectory):
     
-    return
+    z = []
+    S = []
+    t = []
+    F_activated = []
+    for i in range(0, len(trajectory.parcel_states)):
+        S.append(trajectory.parcel_states[i].S)
+        z.append(trajectory.parcel_states[i].z)
+        F_activated.append(trajectory.parcel_states[i].get_activated_fraction())
+        t.append(trajectory.ts[i])
+      
+    fig, ax = plt.subplots(1, 1)
+    ax2=ax.twinx()
+    ax2.spines['left'].set_color('blue')
+    ax2.spines['right'].set_color('red')
+    ax.tick_params(axis='y', which="both",color='blue', labelcolor='blue')
+    ax2.tick_params(axis='y', which="both",color='red', labelcolor='red')
+    ax.plot(np.array((t))/60, S, '-b')
+    ax2.plot(np.array((t))/60, F_activated, '-r')
+    ax2.set_ylim(0,)
+    ax2.set_ylabel('activated fraction', color='red')
+    ax.set_ylabel('saturation ratio', color='blue')
+    ax.set_xlabel('time (min)')
+    
+    return fig
+    
 
 def plot_aq_species(trajectory, species, axis='height'):
     

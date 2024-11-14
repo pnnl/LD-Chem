@@ -148,7 +148,7 @@ def update_particle(particle, r_next, rho_w=1000.):
 ## RHS Derivative callback function
 @nb.njit()
 @auxcc.export("dr_dt", "f8(f8, f8, f8, f8, f8, f8, f8, f8, f8)")
-def dr_dt(r_i, r_dry_i, kappa_i, P, T, S, wv, accom=1.):
+def dr_dt(r_i, r_dry_i, kappa_i, P, T, S, accom=1.):
 # oneparticle_ode_sys(x, t, r_dry_i, N_i, kappa_i, P, T, s, wv, accom=1.):#, add_Seq=False):
     """Calculates the instantaneous time-derivative of the parcel model system.
 
@@ -220,7 +220,7 @@ def dr_dt(r_i, r_dry_i, kappa_i, P, T, S, wv, accom=1.):
     
     # print()
     # print("=============================== HERE ===================================")
-    # print(r_i*1e9, r_dry_i*1e9, kappa_i, S, Seq_i)
+    # print(r_i*1e9, r_dry_i*1e9, kappa_i, delta_S, S)
     # print("========================================================================")
     # print()
     
@@ -231,8 +231,7 @@ def dr_dt(r_i, r_dry_i, kappa_i, P, T, S, wv, accom=1.):
 ## RHS Derivative callback function
 @nb.njit(parallel=True)
 @auxcc.export("dlnr_dt", "f8(f8, f8, f8, f8, f8, f8, f8, f8)")
-# @nb.njit(error_model='numpy')
-def dlnr_dt(lnr_i, r_dry_i, kappa_i, P, T, S, wv, accom=1.0):
+def dlnr_dt(lnr_i, r_dry_i, kappa_i, P, T, S, accom=1.0):
 # oneparticle_ode_sys(x, t, r_dry_i, N_i, kappa_i, P, T, s, wv, accom=1.):#, add_Seq=False):
     """Calculates the instantaneous time-derivative of the parcel model system.
 
@@ -301,23 +300,25 @@ def dlnr_dt(lnr_i, r_dry_i, kappa_i, P, T, S, wv, accom=1.0):
     #     Seq_r = x[1]
     delta_S = S - Seq_i
 
-    ## return dlnr/dt = 1/r * dr/dt
-    
+    ## return dlnr/dt = 1/r * dr/dt    
     dr_dt = ((G / r_i) * delta_S)
     
+
     return dr_dt/r_i
 
-def water_uptake_wrapper(t, r_i, r_dry_i, kappa_i, P, T, S, wv, accom, radius_scale):
+
+
+def water_uptake_wrapper(t, r_i, r_dry_i, kappa_i, P, T, S, accom, radius_scale):
     if radius_scale == 'log':
-        drdt = dlnr_dt(r_i, r_dry_i, kappa_i, P, T, S, wv, accom=accom)
+        drdt = dlnr_dt(r_i, r_dry_i, kappa_i, P, T, S, accom=accom)
     elif radius_scale == 'lin':
-        drdt = dr_dt(r_i, r_dry_i, kappa_i, P, T, S, wv, accom=accom)
+        drdt = dr_dt(r_i, r_dry_i, kappa_i, P, T, S, accom=accom)
     
     return drdt
     
 
 
-def equilibrate_water(aerosol_population,S0,T0,P0,pH0):
+def equilibrate_water(aerosol_population,S0,T0,P0,pH0s):
     """
     Adds water to particles until they are in equilibrium with the
     surrounding air. Should only be used during run initialization.
@@ -339,7 +340,7 @@ def equilibrate_water(aerosol_population,S0,T0,P0,pH0):
     -------
     ParticlePopulation
         Particle population with correct water mass.
-    """       
+    """         
     mass_water = lambda radius, dry_radius: (4.0*np.pi/3.0)*c.rho_w*(radius**3-dry_radius**3)
     for ii,(particle,num_conc) in enumerate(zip(aerosol_population.particles,aerosol_population.num_concs)):
         species_names = []
@@ -355,9 +356,14 @@ def equilibrate_water(aerosol_population,S0,T0,P0,pH0):
         particle.masses[particle.idx_h2o]=mass_water(r, r_dry) 
         
         if 'H+' in species_names:
+            try:
+                pH = pH0s[ii]
+            except:
+                pH = pH0s
+                
             water_volume = 1000*(particle.get_vol_tot() - particle.get_vol_dry()) # L
-            Hplus_conc = 10**(-1.0*pH0) # mol/L
-            particle.masses[particle.get_species_idx('H+')]=(water_volume*Hplus_conc)/particle.species[particle.get_species_idx('H+')].molar_mass        
+            Hplus_conc = 10**(-1.0*pH) # mol/L
+            particle.masses[particle.get_species_idx('H+')]=water_volume*Hplus_conc*particle.species[particle.get_species_idx('H+')].molar_mass        
     
     return aerosol_population
 

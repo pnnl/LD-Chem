@@ -79,7 +79,7 @@ def dstate_dt(x, V, dwc_dt, dwi_dt):
     """
     # todo: make a decision on RH vs s vs S (and be consistent!)
     #       How about rh (in fraction), which is the same as saturation ratio, S (right?)
-    T, P, S, wv = x 
+    z, T, P, S, wv = x 
     
     pv_sat, rho_air, rho_air_dry = compute_thermo_props(T, P, S)
     
@@ -127,11 +127,11 @@ def dstate_dt(x, V, dwc_dt, dwi_dt):
 
     # x = np.empty(shape=(nr+N_STATE_VARS), dtype='d')
     dxdt = np.empty_like(x)
-    # dxdt[0] = dz_dt
-    dxdt[0] = dT_dt
-    dxdt[1] = dP_dt
-    dxdt[2] = dS_dt
-    dxdt[3] = dwv_dt
+    dxdt[0] = dz_dt
+    dxdt[1] = dT_dt
+    dxdt[2] = dP_dt
+    dxdt[3] = dS_dt
+    dxdt[4] = dwv_dt
     
     return dxdt
 

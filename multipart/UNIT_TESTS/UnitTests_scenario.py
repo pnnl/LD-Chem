@@ -10,6 +10,7 @@ import numpy as np
 # from scipy.interpolate import interp1d
 from particles import ParticlePopulation
 from TraceGases import TraceGasPopulation
+from Reactions import AqueousReactions
 # from particles import make_particle
 from scenario import get_aero_spec_fracs, make_polydisperse_population, make_monodisperse_population, lognormal_distribution
 from scenario import make_TraceGas_population, make_AqReactions
@@ -87,6 +88,7 @@ def create_constant_parcel(
         aero_spec_names, aero_spec_fracs = get_aero_spec_fracs(
             molecule_names=species_names, molecule_mass_fracs=mass_fractions,
             specdata_path=specdata_path)
+        
         if Npart > 1:
             aero_spec_fracs_copy = np.zeros((Npart, len(aero_spec_fracs)))
             aero_spec_fracs_copy[:] = aero_spec_fracs
@@ -107,7 +109,7 @@ def create_constant_parcel(
             aerosol_population = make_polydisperse_population(model_Dps, model_Ns, aero_spec_names, aero_spec_fracs, specdata_path=specdata_path, aq_reactions=aq_reactions, gases=TraceGas_population)        
 
         aerosol_population = equilibrate_water(aerosol_population,S0,T0,P0,pH0)     
-    
+        
     trajectories_settings = [TrajectorySettings(
             x0=None,y0=None,z0=0.0,
             u0=None,v0=None,w0=updraft_velocity,

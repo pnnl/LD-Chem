@@ -8,13 +8,15 @@ Driver for the Multiscale Particle-based (MultiPart) microphysics model
 # from dataclasses import dataclass
 from systems import ParcelState
 from systems import Processes
-from scenario import create_scenario_from_DNS, create_parcel_scenario#, create_constant_parcel_scenario
+from scenario import create_scenario_from_DNS, create_parcel_scenario, create_hysplit_scenario, create_les_scenario#, create_constant_parcel_scenario
 # from typing import Tuple
 from typing import Callable
 import numpy as np
 from dataclasses import replace
 import copy, tqdm, time
 import matplotlib.pyplot as plt
+import sys
+from processes import air_thermo
 
 from systems import update_state, ParcelTrajectory, TrajectoryEnsemble, TrajectoryInteractions
 
@@ -89,15 +91,183 @@ def simulate_dns_trajectories(
     return trajectory_ensemble
 
 
+def simulate_hysplit_trajectories(hysplit_tdump_file=None,
+        scenario_numbers='all',dt=1.0,Ddry=100e-9,sigma=1.0,Ntot=1e6, Npart=1,
+        pH0=7.0, accom=1., verbosity=50,
+        radius_scale='lin',solver='CVODE',
+        species_names=['NaCl'], mass_fractions=np.array([1.]),
+        gas_names=None, gas_conc=None,
+        specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
+        condensation = True, collisions = False, settling = False,
+        cocondensation = False, chemistry = False, freezing = False):
+    
+    if not hysplit_tdump_file:
+        print('WARNING: No HYSPLIT file specified!')
+        sys.exit()
+    
+    scenario = create_hysplit_scenario(hysplit_tdump_file,
+                scenario_numbers=scenario_numbers, Ddry=Ddry,
+                sigma=sigma,Ntot=Ntot,Npart=Npart,
+                pH0=pH0,species_names=species_names,mass_fractions=mass_fractions,
+                gas_names=gas_names, gas_conc=gas_conc, 
+                dt=dt, specdata_path=specdata_path,
+                mechanism_data_path=mechanism_data_path,
+                chemistry=chemistry, cocondensation=cocondensation)    
+
+    processes = Processes(
+        condensation = condensation, 
+        collisions = collisions, 
+        settling = settling,
+        cocondensation = cocondensation, 
+        chemistry = chemistry, 
+        freezing = freezing) 
+    
+    trajectory_ensemble = []
+    traj=0
+
+    
+    for (one_trajectory_settings, start_time, end_time
+          ) in zip(scenario.trajectories_settings,scenario.start_times,scenario.end_times):
+        
+        runtime0 = time.time()
+        print('Running trajectory', str(traj+1)+',', Npart,'particles...')
+        ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)  
+        t_start=one_trajectory_settings.t_data[0]
+        t_end=one_trajectory_settings.t_data[-1]
+        Ntimes = int((t_end - t_start)/dt + 1)
+        t_eval = np.linspace(t_start, t_end, Ntimes)
+        parcel_states = [ParcelState_0]        
+        
+        pbar = tqdm.tqdm(total = len(t_eval))
+        for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+            # print(t1, t2)
+            
+            ParcelState_0.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
+            ParcelState_0.P = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.P_data)
+            ParcelState_0.S = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
+            ParcelState_0.T = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.T_data)
+            
+            ParcelState_Next = update_state(t1, t2,
+                ParcelState_0, processes, dt, 
+                radius_scale=radius_scale,solver=solver,
+                sigma=sigma, accom=accom, verbosity=verbosity)
+            
+            parcel_states.append(ParcelState_Next)
+            ParcelState_0=ParcelState_Next
+            
+            pbar.update(1)
+        pbar.close()
+        print('Solving time:', round(time.time() - runtime0, 2), 'seconds')            
+        parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+        print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
+        print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
+        print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')
+        print()
+        
+        traj+=1
+        parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+        trajectory_ensemble.append(parcel_trajectory)
+    
+    return trajectory_ensemble
+
+
+def simulate_les_trajectories(les_output_file=None,
+        dt=1.0,diameters=np.array([100e-9]),N_concs=np.array([1e6]),
+        pHs=np.array([7.0]), accom=1., verbosity=50,
+        radius_scale='lin',solver='CVODE',
+        species_names=['NaCl'], mass_fractions=np.array([1.]),
+        gas_names=None, gas_conc=None,
+        specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
+        condensation = True, collisions = False, settling = False,
+        cocondensation = False, chemistry = False, freezing = False):
+    
+    if not les_output_file:
+        print('WARNING: No LES file specified!')
+        sys.exit()
+    
+    scenario = create_les_scenario(les_output_file,
+                            diameters=diameters,N_concs=N_concs,
+                            pHs=pHs,species_names=species_names,
+                            mass_fractions=mass_fractions,
+                            gas_names=gas_names, gas_conc=gas_conc, 
+                            dt=dt, specdata_path=specdata_path,
+                            mechanism_data_path=mechanism_data_path,
+                            chemistry=chemistry, cocondensation=cocondensation) 
+    
+    processes = Processes(
+        condensation = condensation, 
+        collisions = collisions, 
+        settling = settling,
+        cocondensation = cocondensation, 
+        chemistry = chemistry, 
+        freezing = freezing) 
+    
+    trajectory_ensemble = []
+    traj=0
+    
+    # print()
+    # for particle in scenario.trajectories_settings[0].population0.particles:
+    #     print(2*particle.masses[particle.get_species_idx('SO4')]/96e-3, particle.masses[particle.get_species_idx('NH4')]/18e-3)
+    # print()
+    
+    
+    
+    for (one_trajectory_settings, start_time, end_time
+          ) in zip(scenario.trajectories_settings,scenario.start_times,scenario.end_times):
+        
+        runtime0 = time.time()
+        # print('Running trajectory', str(traj+1)+',', Npart,'particles...')
+        ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)  
+        t_start=one_trajectory_settings.t_data[0]
+        t_end=one_trajectory_settings.t_data[-1]
+        Ntimes = int((t_end - t_start)/dt + 1)
+        t_eval = np.linspace(t_start, t_end, Ntimes)
+        parcel_states = [ParcelState_0]  
+        
+        pbar = tqdm.tqdm(total = len(t_eval))
+        for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+        # for (t1,t2) in zip(t_eval[:9],t_eval[1:10]):
+            
+            ParcelState_Next = update_state(t1, t2,
+                ParcelState_0, processes, dt, 
+                radius_scale=radius_scale,solver=solver,
+                accom=accom, verbosity=verbosity)
+            
+            ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
+            ParcelState_Next.P = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.P_data)
+            ParcelState_Next.S = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
+            ParcelState_Next.T = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.T_data)
+                        
+            parcel_states.append(ParcelState_Next)
+            ParcelState_0=ParcelState_Next
+                        
+            pbar.update(1)
+        pbar.close()
+        print('Solving time:', round(time.time() - runtime0, 2), 'seconds')            
+        parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+        print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
+        print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
+        print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')
+        print()
+        
+        traj+=1
+        parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+        trajectory_ensemble.append(parcel_trajectory)
+    
+    return trajectory_ensemble
+
+
+
 def simulate_parcel_trajectories(N_scenarios=1,
         z_start=0.,z_end=1000.,dt=1.,
         Ddry=100e-9,sigma=1.0,Ntot=1e6, Npart=1,
         updraft_velocity=0.5,S0=-0.15,P0=101325,T0=298,
-        accom=1., verbosity=50,
+        pH0=7.0, accom=1., verbosity=50,
         radius_scale='lin',solver='CVODE',
         species_names=['NaCl'], mass_fractions=np.array([1.]),
-        specdata_path='../species_data/', condensation = True, 
-        collisions = False, settling = False,
+        gas_names=None, gas_conc=None,
+        specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
+        condensation = True, collisions = False, settling = False,
         cocondensation = False, chemistry = False, freezing = False):
     """
     Parameters
@@ -212,15 +382,22 @@ def simulate_parcel_trajectories(N_scenarios=1,
             P_0=P0[i]
         except:
             P_0=P0
+        try:
+            pH_0=pH0[i]
+        except:
+            pH_0=pH0
             
         end_time=z_end/updraft_velocity
                 
         scenario = create_parcel_scenario(
                 Ddry=D_dry,sigma=s,Ntot=N_tot,Npart=N_part,
                 updraft_velocity=V,
-                S0=S_0,P0=P_0,T0=T_0,z_start=z0,z_end=z_f,
+                S0=S_0,P0=P_0,T0=T_0,pH0=pH_0,z_start=z0,z_end=z_f,
                 species_names=species_names,mass_fractions= mass_fractions,
-                dt=timestep, specdata_path=specdata_path)  
+                gas_names=gas_names, gas_conc=gas_conc,
+                dt=timestep, specdata_path=specdata_path,
+                mechanism_data_path=mechanism_data_path,
+                chemistry=chemistry, cocondensation=cocondensation)  
         
         processes = Processes(
             condensation = condensation, 
@@ -236,14 +413,14 @@ def simulate_parcel_trajectories(N_scenarios=1,
             
             runtime0 = time.time()
             print('Running trajectory', str(i+1)+',', N_part,'particles...')
-            ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)        
+            ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)            
             Ntimes = int((end_time - start_time)/dt + 1)        
             t_eval = np.linspace(start_time, end_time, Ntimes)  
             parcel_states = [copy.deepcopy(ParcelState_0)]
             
             pbar = tqdm.tqdm(total = len(t_eval))
             for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
-                ParcelState_Next = update_state(
+                ParcelState_Next = update_state(t1, t2,
                     ParcelState_0, processes, dt, 
                     radius_scale=radius_scale,solver=solver,
                     sigma=sigma, accom=accom, verbosity=verbosity)
@@ -251,10 +428,12 @@ def simulate_parcel_trajectories(N_scenarios=1,
                 ParcelState_0=replace(ParcelState_Next)
                 pbar.update(1)
             pbar.close()
-            print('Solving time:', round(time.time() - runtime0, 2), 'seconds')
-            print()
-                
+            print('Solving time:', round(time.time() - runtime0, 2), 'seconds')            
             parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+            print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
+            print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
+            print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')
+            print()
             trajectory_ensemble.append(parcel_trajectory)
         
     return trajectory_ensemble
@@ -262,43 +441,42 @@ def simulate_parcel_trajectories(N_scenarios=1,
     
 def get_initial_parcel(one_trajectory_settings, start_time=None):
     
-    # if x_fun is defined, x0 is ignored
-    if isinstance(one_trajectory_settings.x_fun, Callable):
-        x0 = one_trajectory_settings.x_fun(start_time)
+    if one_trajectory_settings.x_data is not None:
+        x0 = np.interp(start_time,one_trajectory_settings.t_data, one_trajectory_settings.x_data)
     else:
         x0 = one_trajectory_settings.x0
-    if isinstance(one_trajectory_settings.y_fun, Callable):
-        y0 = one_trajectory_settings.y_fun(start_time)
+    if one_trajectory_settings.y_data is not None:
+        y0 = np.interp(start_time,one_trajectory_settings.t_data, one_trajectory_settings.y_data)
     else:
         y0 = one_trajectory_settings.y0
-    if isinstance(one_trajectory_settings.z_fun, Callable):
-        z0 = one_trajectory_settings.z_fun(start_time)
+    if one_trajectory_settings.z_data is not None:
+        z0 = np.interp(start_time,one_trajectory_settings.t_data, one_trajectory_settings.z_data)
     else:
         z0 = one_trajectory_settings.z0
         
-    if isinstance(one_trajectory_settings.u_fun, Callable):
-        u0 = one_trajectory_settings.u_fun(start_time)
+    if one_trajectory_settings.u_data is not None:
+        u0 = np.interp(start_time,one_trajectory_settings.t_data, one_trajectory_settings.u_data)
     else:
         u0 = one_trajectory_settings.u0
-    if isinstance(one_trajectory_settings.v_fun, Callable):
-        v0 = one_trajectory_settings.v_fun(start_time)
+    if one_trajectory_settings.v_data is not None:
+        v0 = np.interp(start_time,one_trajectory_settings.t_data, one_trajectory_settings.v_data)
     else:
         v0 = one_trajectory_settings.v0
-    if isinstance(one_trajectory_settings.w_fun, Callable):
-        w0 = one_trajectory_settings.w_fun(start_time)
+    if one_trajectory_settings.w_data is not None:
+        w0 = np.interp(start_time,one_trajectory_settings.t_data, one_trajectory_settings.w_data)
     else:
         w0 = one_trajectory_settings.w0
 
-    if isinstance(one_trajectory_settings.S_fun, Callable):
-        S0 = one_trajectory_settings.S_fun(start_time)
+    if one_trajectory_settings.S_data is not None:
+        S0 = np.interp(start_time,one_trajectory_settings.t_data, one_trajectory_settings.S_data)
     else:
         S0 = one_trajectory_settings.S0
-    if isinstance(one_trajectory_settings.P_fun, Callable):
-        P0 = one_trajectory_settings.P_fun(start_time)
+    if one_trajectory_settings.P_data is not None:
+        P0 = np.interp(start_time,one_trajectory_settings.t_data, one_trajectory_settings.P_data)
     else:
         P0 = one_trajectory_settings.P0
-    if isinstance(one_trajectory_settings.T_fun, Callable):
-        T0 = one_trajectory_settings.T_fun(start_time)
+    if one_trajectory_settings.T_data is not None:
+        T0 = np.interp(start_time,one_trajectory_settings.t_data, one_trajectory_settings.T_data)
     else:
         T0 = one_trajectory_settings.T0
     

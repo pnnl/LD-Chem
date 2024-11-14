@@ -101,6 +101,12 @@ class Particle:
     
     def get_rho_w(self):
         return 1000. # kg/m^3 -- todo: fix this later
+    
+    def get_Hplus_conc(self):
+        Hplus_molar_mass=self.species[self.get_species_idx('H+')].molar_mass
+        Hplus_moles=self.masses[self.get_species_idx('H+')]/Hplus_molar_mass
+        return Hplus_moles/(1000*(self.get_vol_tot()-self.get_vol_dry())) # mol/L
+               
     # def get_rho_w(self):
     #     idx_h2o, = np.where([one_spec.name.upper()=='H2O' for one_spec in self.species])
     #     print(idx_h2o)
@@ -132,7 +138,15 @@ class Particle:
             if self.species[ii].name == species:
                 return ii
         return idx
-
+    
+    def get_pH(self):
+        water_volume=1000*(self.get_vol_tot()-self.get_vol_dry())
+        idx=self.get_species_idx('H+')
+        Hplus_conc=(self.masses[idx]/self.species[idx].molar_mass)/water_volume
+        return -1.0*np.log10(Hplus_conc)
+        
+    
+    
 @dataclass
 class ParticlePopulation:
     """ParticlePopulation: the definition of a population of particles

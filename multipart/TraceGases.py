@@ -23,6 +23,7 @@ class GasSpecies:
     def get_Heff(self, T):
         # returns Henry's Law coefficient at given temperature in mol/m^3*Pa
         return (1000/101325)*self.H0*np.exp(self.H_exp*((1/T)-(1/298))) 
+
     
 # @dataclass(frozen=True)
 # class AqueousSpecies:
@@ -63,6 +64,7 @@ def retrieve_gas_species(name, specdata_path='../species_data/'):
         for line in data_file:
             if line.upper().startswith(name.upper()):
                 name_in_file,alpha,molar_mass,H0,H_exp = line.split()
+    
     return GasSpecies(
         name=name,
         alpha=float(alpha),

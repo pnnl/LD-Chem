@@ -9,6 +9,7 @@ import numpy as np
 import numba as nb
 from numba.pycc import CC
 import sys
+from scipy.optimize import fminbound
 
 
 from dataclasses import dataclass
@@ -38,6 +39,7 @@ class ParcelState:
     
     # gas_mixture: GasMixture
     particle_population: ParticlePopulation
+    
     
 @dataclass
 class ProcessControls:

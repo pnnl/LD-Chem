@@ -24,7 +24,7 @@ class Reaction:
     
     def get_rate(self, T):
         # returns rate at given temperature
-        return self.rate0*np.exp(self.neg_dH_R*((1/T)-(1/298))) 
+        return self.rate0*np.exp(self.neg_dH_R*((1/T)-(1/298)))  # (M^(1-n)/s)
 
 # @dataclass(frozen=True)
 # class AqueousSpecies:
