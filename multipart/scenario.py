@@ -16,7 +16,7 @@ from Reactions import Reaction, AqueousReactions
 from processes.water_uptake import equilibrate_water
 from aerosol_species import retrieve_one_species
 from typing import Tuple, Callable, Optional
-import mat73, sys, pickle
+import mat73, sys, pickle, warnings
 from scipy.special import erfinv
 from systems import Processes
 import matplotlib.pyplot as plt
@@ -135,7 +135,7 @@ def create_parcel_scenario(
         
         aero_spec_names, aero_spec_fracs = get_aero_spec_fracs(
             molecule_names=species_names, molecule_mass_fracs=mass_fractions,
-            specdata_path=specdata_path)
+            specdata_path=specdata_path)        
         
         if 'H+' not in aero_spec_names:
             aero_spec_names.append('H+')
@@ -307,18 +307,17 @@ def create_hysplit_scenario(hysplit_trajectory_file,
 
 
 
-def create_les_scenario(les_trajectory_file,
+def create_les_scenario(les_trajectory_file,         
             aerosol_population=None, TraceGas_population=None,
             diameters=np.array([100e-9]),N_concs=np.array([1e6]),
             pHs=np.array([7.0]),species_names=np.array(['NaCl']),
             mass_fractions=np.array([1.]),
-            gas_names=None, gas_conc=None, 
+            gas_names=None, gas_data=None,
             dt=None, specdata_path='../species_data/',
             mechanism_data_path='../mechamisms/',
             chemistry=None, cocondensation=False):
     
     # set up the S, T, and P drivers
-    
     LES_data = pickle.load(open(les_trajectory_file, 'rb'))
     LES_data['hour'] = np.zeros(len(LES_data['time']))
     LES_data['minute'] = np.zeros(len(LES_data['time']))
@@ -332,8 +331,8 @@ def create_les_scenario(les_trajectory_file,
     P0 = 101325*np.exp(-0.14586*LES_data['z'][0])
     T0 = LES_data['T'][0]
     LES_data['z']*=1000
-    LES_data['P']=(P0*LES_data['T'])/T0
-        
+    LES_data['P']=(P0*LES_data['T'])/T0    
+    
     trajectories_settings = []
     start_times = []
     end_times = []
@@ -341,13 +340,10 @@ def create_les_scenario(les_trajectory_file,
     
     
     
-    
-    # set up the aerosol and gas populations
-    # if Npart > 1 and sigma == 1.0:
-    #     print('WARNING: Sigma = 1.0 and Npart > 1! Setting Npart to 1 to speed up calculations.')
-    #     Npart = 1
-            
-    if cocondensation:
+    if cocondensation and gas_names:
+        gas_conc=np.zeros(len(gas_names))
+        for ii, (gas) in enumerate(gas_names):
+            gas_conc[ii]=np.interp(LES_data['z'][0], xp=gas_data[gas]['alt'], fp=gas_data[gas]['ppb'])
         TraceGas_population = make_TraceGas_population(gas_names, gas_conc, specdata_path=specdata_path)
     else:
         TraceGas_population=None
@@ -376,17 +372,20 @@ def create_les_scenario(les_trajectory_file,
             
         particles = [None]*Npart
         num_concs = [None]*Npart
-        ids = [None]*Npart   
+        ids = [None]*Npart 
+        
         for ii in range(len(species_names)):
+            
             aero_spec_names, aero_spec_fracs = get_aero_spec_fracs(
                 molecule_names=species_names[ii], molecule_mass_fracs=mass_fractions[ii],
-                specdata_path=specdata_path)
+                specdata_path=specdata_path)            
         
             if 'H+' not in aero_spec_names:
                 aero_spec_names.append('H+')
                 aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
-                        
-            if np.sum(aero_spec_fracs) != 1.0:
+            
+            if np.round(np.sum(aero_spec_fracs),9) != 1.0:
+                print(aero_spec_fracs)
                 print('WARNING: Mass fractions for particle', ii, 'does not equal 1!')
                 sys.exit()
             
@@ -397,11 +396,11 @@ def create_les_scenario(les_trajectory_file,
         
         aerosol_population = ParticlePopulation(particles=particles, num_concs=num_concs, ids=ids)
         idx=np.where(LES_data['simulation time']==0)
-        S0=LES_data['SS'][idx[0][0]]-1
+        S0=LES_data['SS'][idx[0][0]]+1
         T0=LES_data['T'][idx[0][0]]
         P0=LES_data['P'][idx[0][0]]
         aerosol_population = equilibrate_water(aerosol_population,S0,T0,P0,pHs)
-                    
+        
         ts = LES_data['simulation time']
         one_settings = TrajectorySettings(
             x0=None,y0=None,z0=LES_data['z'][0],u0=None,
@@ -440,6 +439,7 @@ def lognormal_distribution(x, Ntot, Dpg, sigma):
     return prefactor*np.exp(numerator/denominator)
 
 
+
 def get_partmc_population(filename, spec_path='../species_data/'):
     pass
 
@@ -451,15 +451,22 @@ def get_partmc_population(filename, spec_path='../species_data/'):
 #     return ParticlePopulation(particles=[OneParticle], num_concs=[N], ids=[0])
 
 def get_aero_spec_fracs(molecule_names=['NaCl'], molecule_mass_fracs=np.array([1.]),specdata_path='../species_data/'):
-    aero_spec_names = []
-    aero_spec_fracs = np.array([])    
+    aero_names_temp = []
+    aero_fracs_temp = np.array([])    
     for (molecule_name,molecule_fraction) in zip(molecule_names,molecule_mass_fracs):
         one_aero_spec_names, one_aero_spec_fracs = molecules_to_fracs(
             molecule_name,molecule_fraction=molecule_fraction,specdata_path=specdata_path)
         for (onename,onefrac) in zip(one_aero_spec_names, one_aero_spec_fracs):
-            aero_spec_names.append(onename)
-            aero_spec_fracs = np.append(aero_spec_fracs,onefrac)
+            aero_names_temp.append(onename)
+            aero_fracs_temp = np.append(aero_fracs_temp,onefrac)
     
+    aero_spec_names=[]
+    aero_spec_fracs=np.array([])
+    for name in np.unique(np.array((aero_names_temp))):
+        idx=np.where(np.array((aero_names_temp))==name)
+        aero_spec_names.append(name)
+        aero_spec_fracs=np.append(aero_spec_fracs, np.sum(aero_fracs_temp[idx[0]]))
+        
     # print(aero_spec_names, np.sum(aero_spec_fracs))
     
     # if len([spec_name.upper() == 'H2O' for spec_name in aero_spec_names]) == 0:
@@ -470,18 +477,19 @@ def get_aero_spec_fracs(molecule_names=['NaCl'], molecule_mass_fracs=np.array([1
     return aero_spec_names, aero_spec_fracs
     
 def molecules_to_fracs(molecule_name,molecule_fraction=1.,specdata_path='../species_data/',surface_tension=0.072):
+    
     if molecule_name == 'NaCl':
         ion_names = ['Na','Cl']
         num_ions_per_molecule = [1,1]
     elif molecule_name == 'AS':
         ion_names = ['NH4','SO4']
         num_ions_per_molecule = [2,1]
+    elif molecule_name == 'ABS':
+        ion_names = ['NH4','HSO4']
+        num_ions_per_molecule = [1,1]
     elif molecule_name == 'OC':
         ion_names = ['OC']
         num_ions_per_molecule = [1]
-    elif molecule_name == 'AN':
-        ion_names = ['NH4','NO3']
-        num_ions_per_molecule = [1,1]
     elif molecule_name == 'AN':
         ion_names = ['NH4','NO3']
         num_ions_per_molecule = [1,1]
@@ -502,10 +510,7 @@ def molecules_to_fracs(molecule_name,molecule_fraction=1.,specdata_path='../spec
         num_ions_per_molecule = [1]
         
     else:
-        print('warning: ' + molecule_name + ' is not (yet) included as a molecule; returning original')
-        ion_names = [molecule_name]
-        num_ions_per_molecule = [1]
-        sys.exit()
+        warnings.warn('warning: ' + molecule_name + ' is not (yet) included as a molecule; returning original')
 
     # double-check this!
     mass_tot = 0.
@@ -525,6 +530,7 @@ def make_monodisperse_population(D, N, aero_spec_names, aero_spec_fracs, aq_reac
         aero_spec_names.append('H2O')
         aero_spec_fracs = np.append(aero_spec_fracs, 0.)
     OneParticle = make_particle(D, aero_spec_names, aero_spec_fracs, specdata_path=specdata_path, reactions=aq_reactions, gases=gases)
+    
     return ParticlePopulation(particles=[OneParticle], num_concs=[N], ids=[0])
 
 # def make_monodisperse_population(D, N, aero_spec_names, aero_spec_fracs, specdata_path='../species_data/',surface_tension=0.072):
@@ -542,6 +548,7 @@ def make_polydisperse_population(Ds, Ns, aero_spec_names, aero_spec_fracs, aq_re
             aero_spec_fracs_withH2O[ii,:] = np.append(aero_spec_fracs[ii,:],0.)
         aero_spec_fracs = aero_spec_fracs_withH2O
             # aero_spec_fracs = np.append(aero_spec_fracs, 0.)
+    
     Npart = len(Ds)
     particles = [None]*Npart
     num_concs = [None]*Npart
@@ -551,13 +558,36 @@ def make_polydisperse_population(Ds, Ns, aero_spec_names, aero_spec_fracs, aq_re
             OneParticle = make_particle(Ds[ii], aero_spec_names, aero_spec_fracs[ii,:], specdata_path=specdata_path, surface_tension=surface_tension, reactions=aq_reactions, gases=gases)
         except:
             OneParticle = make_particle(Ds[ii], aero_spec_names, aero_spec_fracs, specdata_path=specdata_path, surface_tension=surface_tension, reactions=aq_reactions, gases=gases)
+
         particles[ii] = OneParticle
         num_concs[ii] = Ns[ii]
         ids[ii] = ii
+        
     return ParticlePopulation(particles=particles, num_concs=num_concs, ids=ids)
 
 
-def make_TraceGas_population(gas_names, gas_conc, specdata_path='../species_data/'):
+def make_TraceGas_population(gas_names, gas_conc, aq_reactions=None, specdata_path='../species_data/'):
+    
+    # if aq_reactions:
+    #     for reaction in aq_reactions.reactions:
+    #         for reactant in reaction.reactants:
+    #             try:
+    #                 OneGas = retrieve_gas_species(reactant, specdata_path=specdata_path)
+    #                 if reactant not in gas_names and reactant not in ['H2O','O2']:
+    #                     gas_names.append(reactant)
+    #                     gas_conc.append(0.0)
+    #             except:
+    #                 x=1
+            
+    #         for product in reaction.products:
+    #             try:
+    #                 OneGas = retrieve_gas_species(product, specdata_path=specdata_path)
+    #                 if product not in gas_names and product!='H2O':
+    #                     gas_names.append(product)
+    #                     gas_conc.append(0.0)
+    #             except:
+    #                 x=1
+    
     if gas_names:
         Nspec = len(gas_conc)
         gases = [None]*Nspec

@@ -24,6 +24,8 @@ Symbol            Variable      Value      Units             Description
 :math:`a_T`       ``at``        0.96       unitless          thermal accommodation
                                                              coefficient
 :math:`\epsilon`  ``epsilon``   0.622      unitless          ratio of :math:`M_w/M_a`
+:math:`\e`        ``e``         1.6E-19    C                 electron charge
+:math:`\kb`       ``kb``        1.38E-23   J/K               Boltzmann constant
 ================= ============= ========== ==========        ======================
 Additionally, a reference table containing the
 `1976 US Standard Atmosphere <http://www.pdas.com/atmos.html>`_ is implemented in the
@@ -59,6 +61,9 @@ ac = 1.0  #: condensation constant
 Ka = 2.0e-2  #: Thermal conductivity of air, J/m/s/K
 at = 0.96  #: thermal accomodation coefficient
 epsilon = 0.622  #: molecular weight of water / molecular weight of dry air
+e = 1.602176634E-19  #: electron charge, Coulombs
+kb = 1.380649E-23  #: Boltzmann constant, J/K
+Na = 6.022E23 #: Avogadro's constant, molec/mol
 
 accom = 1.0
 N_STATE_VARS = 5

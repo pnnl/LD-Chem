@@ -26,6 +26,12 @@ H2SO4          0                   0                   98d-3      0
 HSO4           0                   0                   97d-3      0
 O3             0                   0                   48d-3      0
 H+             0                   0                   1d-3       0
-tetrol         1550                0                   136d-3     0.18
-tetrol_olig    1550                0                   254d-3     0.18
+HNO3           0                   0                   63d-3      0
+IEPOX          0                   0                   118d-3     0
+tetrol         1500                0                   136d-3     0.18
+tetrol_olig    1500                0                   254d-3     0.18
 IEPOX_OS       1500                0                   216d-3     0.25
+O2             0                   0                   32d-3      0
+H2O2           0                   0                   34d-3      0
+NO2            0                   0                   46d-3      0
+HNO2           0                   0                   47d-3      0

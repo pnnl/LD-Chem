@@ -162,8 +162,9 @@ def retrieve_one_species(name, specdata_path='../species_data/',surface_tension=
     aero_datafile = specdata_path + 'aero_data.dat'
     with open(aero_datafile) as data_file:
         for line in data_file:
-            if line.upper().startswith(name.upper()):
+            if line.split()[0]==name:
                 name_in_file,density,ions_in_solution,molar_mass,kappa = line.split()
+    
     return AerosolSpecies(
         name=name,
         density=float(density),
@@ -177,11 +178,11 @@ def make_particle(D, aero_spec_names, aero_spec_fracs, specdata_path='../species
     if reactions:
         for reaction in reactions.reactions:
             for reactant in reaction.reactants:
-                if reactant not in aero_spec_names:
+                if reactant not in aero_spec_names and reactant not in ['S(IV)', 'S(VI)', 'O2']:
                     aero_spec_names = np.append(aero_spec_names, reactant)
                     aero_spec_fracs = np.append(aero_spec_fracs, 0.0)
             for product in reaction.products:
-                if product not in aero_spec_names:
+                if product not in aero_spec_names and product not in ['S(IV)', 'S(VI)', 'O2']:
                     aero_spec_names = np.append(aero_spec_names, product)
                     aero_spec_fracs = np.append(aero_spec_fracs, 0.0)
     
@@ -192,6 +193,10 @@ def make_particle(D, aero_spec_names, aero_spec_fracs, specdata_path='../species
                 if gas.H0 > 0 and gas.name not in aero_spec_names:
                     aero_spec_names = np.append(aero_spec_names, gas.name)
                     aero_spec_fracs = np.append(aero_spec_fracs, 0.0)
+    
+    if 'H+' not in aero_spec_names:
+        aero_spec_names = np.append(aero_spec_names, 'H+')
+        aero_spec_fracs = np.append(aero_spec_fracs, 0.0)
     
     AeroSpecs = []
     for name in aero_spec_names:
