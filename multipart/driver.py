@@ -17,6 +17,7 @@ import copy, tqdm, time
 import matplotlib.pyplot as plt
 import sys
 from processes import air_thermo
+from scenario import make_AqReactions
 
 from systems import update_state, ParcelTrajectory, TrajectoryEnsemble, TrajectoryInteractions
 
@@ -176,7 +177,7 @@ def simulate_les_trajectories(les_output_file=None,
         pHs=np.array([7.0]), accom=1., verbosity=50,
         radius_scale='lin',solver='CVODE',
         species_names=['NaCl'], mass_fractions=np.array([1.]),
-        gas_names=None, gas_conc=None,
+        gas_names=None, gas_data=None,
         specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
         condensation = True, collisions = False, settling = False,
         cocondensation = False, chemistry = False, freezing = False):
@@ -184,15 +185,21 @@ def simulate_les_trajectories(les_output_file=None,
     if not les_output_file:
         print('WARNING: No LES file specified!')
         sys.exit()
-    
-    scenario = create_les_scenario(les_output_file,
+        
+        
+    scenario = create_les_scenario(les_output_file, 
                             diameters=diameters,N_concs=N_concs,
                             pHs=pHs,species_names=species_names,
                             mass_fractions=mass_fractions,
-                            gas_names=gas_names, gas_conc=gas_conc, 
+                            gas_names=gas_names, gas_data=gas_data, 
                             dt=dt, specdata_path=specdata_path,
                             mechanism_data_path=mechanism_data_path,
                             chemistry=chemistry, cocondensation=cocondensation) 
+    
+    if chemistry:
+        aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+    else:
+        aq_reactions = None
     
     processes = Processes(
         condensation = condensation, 
@@ -200,23 +207,50 @@ def simulate_les_trajectories(les_output_file=None,
         settling = settling,
         cocondensation = cocondensation, 
         chemistry = chemistry, 
-        freezing = freezing) 
+        freezing = freezing)
+    
+    # equilibrate the S(VI) species
+    if chemistry:
+        if 'sulfate' in chemistry:
+            particle_population=scenario.trajectories_settings[0].population0.particles
+            for ii, (particle) in enumerate(particle_population):
+                water_volume=particle.get_vol_tot()-particle.get_vol_dry()
+                SO4_conc=(particle.masses[particle.get_species_idx('SO4')]/particle.species[particle.get_species_idx('SO4')].molar_mass)/water_volume
+                Hplus_conc=(particle.masses[particle.get_species_idx('H+')]/particle.species[particle.get_species_idx('H+')].molar_mass)/water_volume
+                HSO4_conc=(SO4_conc*Hplus_conc)/0.01
+                H2SO4_conc=(HSO4_conc*Hplus_conc)/1000.0
+                particle.masses[particle.get_species_idx('HSO4')]=HSO4_conc*particle.species[particle.get_species_idx('HSO4')].molar_mass*water_volume
+                particle.masses[particle.get_species_idx('H2SO4')]=H2SO4_conc*particle.species[particle.get_species_idx('H2SO4')].molar_mass*water_volume
+    
+    # equilibrate the co-condensing species
+    # if scenario.trajectories_settings[0].gas0 and processes.cocondensation:
+    #     for ii, (particle) in enumerate(particle_population):
+    #         water_volume=particle.get_vol_tot()-particle.get_vol_dry()
+    #         T0 = np.interp(0.0, scenario.trajectories_settings[0].t_data, scenario.trajectories_settings[0].T_data)
+    #         P0 = np.interp(0.0, scenario.trajectories_settings[0].t_data, scenario.trajectories_settings[0].P_data)
+    #         for gas, conc in zip(scenario.trajectories_settings[0].gas0.gases, scenario.trajectories_settings[0].gas0.concs):
+    #             if gas.molar_mass > 0:
+    #                 Cx = 1e-9*conc*P0*gas.get_Heff(T0) # mil/m^3
+    #                 Mx = gas.molar_mass*Cx*water_volume
+    #                 particle.masses[particle.get_species_idx(gas.name)]=Mx
     
     trajectory_ensemble = []
     traj=0
     
     # print()
     # for particle in scenario.trajectories_settings[0].population0.particles:
-    #     print(2*particle.masses[particle.get_species_idx('SO4')]/96e-3, particle.masses[particle.get_species_idx('NH4')]/18e-3)
-    # print()
-    
-    
+    #     for species, mass in zip(particle.species, particle.masses):
+    #         print(species.name, mass)
+    #     print()    
+    # print()    
+    # sys.exit()
     
     for (one_trajectory_settings, start_time, end_time
           ) in zip(scenario.trajectories_settings,scenario.start_times,scenario.end_times):
         
         runtime0 = time.time()
-        # print('Running trajectory', str(traj+1)+',', Npart,'particles...')
+        print()
+        print('Running trajectory', str(traj+1)+',', len(N_concs),'particles...')
         ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)  
         t_start=one_trajectory_settings.t_data[0]
         t_end=one_trajectory_settings.t_data[-1]
@@ -226,18 +260,27 @@ def simulate_les_trajectories(les_output_file=None,
         
         pbar = tqdm.tqdm(total = len(t_eval))
         for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
-        # for (t1,t2) in zip(t_eval[:9],t_eval[1:10]):
+        # for (t1,t2) in zip(t_eval[:4],t_eval[1:5]):
             
             ParcelState_Next = update_state(t1, t2,
-                ParcelState_0, processes, dt, 
+                ParcelState_0, processes, dt,
                 radius_scale=radius_scale,solver=solver,
-                accom=accom, verbosity=verbosity)
-            
+                accom=accom, verbosity=verbosity,
+                mechanism_data_path=mechanism_data_path,
+                aq_reactions=aq_reactions)
+
             ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
             ParcelState_Next.P = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.P_data)
             ParcelState_Next.S = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
             ParcelState_Next.T = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.T_data)
-                        
+            
+            # update the gas concentrations
+            if cocondensation and ParcelState_Next.TraceGas_population:
+                new_gas_conc = []
+                for gas in ParcelState_Next.TraceGas_population.gases:
+                    new_gas_conc.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
+                ParcelState_Next.TraceGas_population.concs=new_gas_conc
+            
             parcel_states.append(ParcelState_Next)
             ParcelState_0=ParcelState_Next
                         
@@ -253,6 +296,7 @@ def simulate_les_trajectories(les_output_file=None,
         traj+=1
         parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
         trajectory_ensemble.append(parcel_trajectory)
+    
     
     return trajectory_ensemble
 

@@ -10,6 +10,8 @@ from typing import Tuple
 import numpy as np
 import sys
 
+R = 8.314
+
 @dataclass(frozen=True)
 class GasSpecies:
     """GasSpecies: the definition of a gaseous species in terms of species-
@@ -71,6 +73,20 @@ def retrieve_gas_species(name, specdata_path='../species_data/'):
         molar_mass=float(molar_mass.replace('d','e')),
         H0=float(H0.replace('d','e')),
         H_exp=float(H_exp.replace('d','e')))
+
+
+def equilibrate_gases(aerosol_population,TraceGas_population,T,P):
+    
+    for gas, gas_conc in zip(TraceGas_population.gases, TraceGas_population.concs):
+        if gas.name != 'IEPOX':
+            Caq_x = gas_conc*1e-9*P*gas.get_Heff(T)  # mol/m^3
+            for i,(particle,num_conc) in enumerate(zip(aerosol_population.particles,aerosol_population.num_concs)):
+                water_volume = particle.get_vol_tot()-particle.get_vol_dry() # m^3            
+                idx = particle.get_species_idx(gas.name)
+                if idx and particle.species[idx].density==0:
+                    particle.masses[idx]=water_volume*Caq_x*particle.species[idx].molar_mass
+    return aerosol_population
+    
 
 # def retrieve_aq_species(name, specdata_path='../species_data/'):
 #     aq_datafile = specdata_path + 'aq_species_data.dat'
