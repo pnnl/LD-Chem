@@ -41,7 +41,7 @@ def dCaq_dt(Caq_all, aq_names, Cgas_all, gas_names, gas_molec_masses, gas_alphas
                         idx = ii
                 Caq = Caq_all[idx]
                 dCaq_dt_all[idx] = kmt*(Cgas - (Caq/(Heff*R*T))) # mol/m^3*s
-      
+
     return dCaq_dt_all
 
 
@@ -77,7 +77,7 @@ def IEPOX_condensation(Caq_all, aq_names, Cgas_all, gas_names, radius, T, S,
     kaqs = [1.8e-4, 2.62e-6, 6.2e-8, 1.91e-4]
     kaq = kaqs[0]*Hplus_conc*H2O_conc + kaqs[1]*HSO4_conc*H2O_conc + kaqs[2]*NH4_conc*H2O_conc + kaqs[3]*Hplus_conc*SO4_conc # 1/s
     
-    Haq=3.0e2*(1000/101325) # mol/m^3 Pa, AS: 3.0e4*(1000/101325)
+    Haq=3.0e4*(1000/101325) # mol/m^3 Pa
     
     V = (4.0/3.0)*np.pi*radius**3 # m^3
     Ap = 4.0*np.pi*radius**2 # m^2
@@ -85,7 +85,7 @@ def IEPOX_condensation(Caq_all, aq_names, Cgas_all, gas_names, radius, T, S,
     Dg = (1/100**2)*1.9*np.power(molar_mass, (-2/3)) # m^2/s
     Gamma_aq_inv = (4*V*R*T*Haq*kaq)/(Ap*w) # unitless
     
-    Horg=6.0E2*(1000/101325) # mol/m^3 Pa, AS: 2.0e3*(1000/101325)
+    Horg=1.0e3*(1000/101325) # mol/m^3 Pa
     
     Eta_org=6.92448e9*np.exp(-2.48362e1*S) # Pa*s (fit of table S3 in "Effect of the Aerosol-Phase State on Secondary Organic Aerosol Formation from the Reactive Uptake of Isoprene-Derived Epoxydiols (IEPOX)")
     Dorg=(1.380649E-23*T)/(6*np.pi*1e-10*Eta_org)

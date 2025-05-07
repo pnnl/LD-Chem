@@ -8,7 +8,7 @@ Driver for the Multiscale Particle-based (MultiPart) microphysics model
 # from dataclasses import dataclass
 from systems import ParcelState
 from systems import Processes
-from scenario import create_scenario_from_DNS, create_parcel_scenario, create_hysplit_scenario, create_les_scenario#, create_constant_parcel_scenario
+from scenario import create_scenario_from_DNS, create_parcel_scenario, create_hysplit_scenario, create_les_scenario, create_pichamber_scenario
 # from typing import Tuple
 from typing import Callable
 import numpy as np
@@ -19,6 +19,7 @@ import sys, pickle
 from processes import air_thermo
 from scenario import make_AqReactions
 from write_files import write_original, overwrite
+import scipy.optimize as opt
 
 from systems import update_state, ParcelTrajectory, TrajectoryEnsemble, TrajectoryInteractions
 
@@ -183,6 +184,8 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
         condensation = True, collisions = False, settling = False,
         cocondensation = False, chemistry = False, freezing = False, write_every=60.):
     
+    #sys.stdout = open('output.log', 'w')
+    
     if not les_output_file:
         print('WARNING: No LES file specified!')
         sys.exit()
@@ -234,6 +237,15 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
     #                 Mx = gas.molar_mass*Cx*water_volume
     #                 particle.masses[particle.get_species_idx(gas.name)]=Mx
     
+    
+    
+    # particle=scenario.trajectories_settings[0].population0.particles[0]
+    # for ii, (species) in enumerate(particle.species):
+    #     print(species.name, particle.masses[ii])
+    # sys.exit()
+    
+    
+    
     trajectory_ensemble = []
     traj=0
     
@@ -257,46 +269,75 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
         print()
         print('Running trajectory', output_filename[-10:-4]+',', len(N_concs),'particles...')
         
-        counter=0
+        counter=0        
         #pbar = tqdm.tqdm(total = len(t_eval))
         for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+            steptime0 = time.time()
+            
             ParcelState_Next = update_state(t1, t2,
                 ParcelState_0, processes, dt,
                 radius_scale=radius_scale,solver=solver,
                 accom=accom, verbosity=verbosity,
                 mechanism_data_path=mechanism_data_path,
-                aq_reactions=aq_reactions)
-
+                aq_reactions=aq_reactions, rtol=1e-4, atol=1e-8)
+                               
             ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
             ParcelState_Next.x = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.x_data)
             ParcelState_Next.y = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.y_data)
             ParcelState_Next.P = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.P_data)
             ParcelState_Next.S = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
             ParcelState_Next.T = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.T_data)
-            
+                        
             # update the gas concentrations
             if cocondensation and ParcelState_Next.TraceGas_population:
                 new_gas_conc = []
                 for gas in ParcelState_Next.TraceGas_population.gases:
-                    new_gas_conc.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
+                    if ParcelState_Next.z < np.min(gas_data[gas.name]['alt']):
+                        f = lambda x, a, b: a*x**b
+                        params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][:2], gas_data[gas.name]['ppb'][:2], p0=[1, 0.1])
+                        new_gas_conc.append(f(ParcelState_Next.z, params[0], params[1]))
+                    elif ParcelState_Next.z > np.max(gas_data[gas.name]['alt']):
+                        f = lambda x, a, b: a*x**b
+                        params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][-2:], gas_data[gas.name]['ppb'][-2:], p0=[1, 0.1])
+                        new_gas_conc.append(f(ParcelState_Next.z, params[0], params[1]))
+                    else:
+                        new_gas_conc.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
                 ParcelState_Next.TraceGas_population.concs=new_gas_conc
             
+            # print timestep and time for timestep
+            counter+=1
+            print(str(counter)+'/'+str(len(t_eval))+' -- '+str(round(time.time() - steptime0, 2))+ 's/it', flush=True)
+            
+            # check for NaNs
+            total_mass = []
+            for particle, num_conc in zip(ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs):
+                total_mass.append(num_conc*np.sum(particle.masses))
+            print(ParcelState_Next.S, 1e9*np.sum(np.array(total_mass)))
+            print()
+                    
+            # kill the program if there is a NaN
+            if np.isnan(np.sum(total_mass)):
+                print('ERROR')
+                f = open(status_filename, 'w')
+                f.write('killed (NaNs)')
+                f.close()
+                sys.exit()
+            
+            # update parcel state
             parcel_states.append(ParcelState_Next)
             parcel_ts.append(t2)
             ParcelState_0=ParcelState_Next
             
+            # write backup files
             if t2-last_written>=write_every:
                 f = open(status_filename, 'w')
                 f.write('in progress')
                 f.close()
-                
                 overwrite(ParcelTrajectory(ts=parcel_ts, parcel_states=parcel_states), output_filename, specdata_path=specdata_path)
                 ParcelState_dict = {'time': t2, 'parcel state': ParcelState_Next, 'dt':dt, 'accom':accom, 'verbosity':verbosity, 'radius_scale':radius_scale, 'solver':solver, 'specdata_path':specdata_path, 'mechanism_data_path':mechanism_data_path, 'processes':processes, 'write_every':write_every,'one_trajectory_settings':one_trajectory_settings, 'aq_reactions':aq_reactions, 'gas_data':gas_data}
                 pickle.dump(ParcelState_dict, open(restart_filename, 'wb'))
                 last_written=t2
             
-            counter+=1
-            print(str(counter)+'/'+str(len(t_eval)), flush=True)
             #pbar.update(1)
         #pbar.close()
         print()
@@ -319,6 +360,7 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
     
 def restart_les_trajectories(output_path=None, ParcelState_file=None, trajectory_file=None):
     
+    #sys.stdout = open('output.log', 'w')
     data = pickle.load(open(output_path+'/'+ParcelState_file, 'rb'))
     ParcelState_0 = data['parcel state']
     one_trajectory_settings = data['one_trajectory_settings']
@@ -349,17 +391,19 @@ def restart_les_trajectories(output_path=None, ParcelState_file=None, trajectory
     restart_filename=output_path+'/trajectory_'+trajectory_file[-10:-4]+'_RESTART.pkl'
     output_filename=output_path+'/trajectory_'+trajectory_file[-10:-4]+'.pkl'
     status_filename=output_path+'/trajectory_'+trajectory_file[-10:-4]+'_STATUS'
-        
+    
     #pbar = tqdm.tqdm(total = len(t_eval))
     counter=0
     for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+        steptime0 = time.time()
+                                
         ParcelState_Next = update_state(t1, t2,
             ParcelState_0, processes, dt,
             radius_scale=radius_scale,solver=solver,
             accom=accom, verbosity=verbosity,
             mechanism_data_path=mechanism_data_path,
-            aq_reactions=aq_reactions)
-
+            aq_reactions=aq_reactions, rtol=1e-10, atol=1e-10)
+        
         ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
         ParcelState_Next.x = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.x_data)
         ParcelState_Next.y = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.y_data)
@@ -371,13 +415,46 @@ def restart_les_trajectories(output_path=None, ParcelState_file=None, trajectory
         if processes.cocondensation and ParcelState_Next.TraceGas_population:
             new_gas_conc = []
             for gas in ParcelState_Next.TraceGas_population.gases:
-                new_gas_conc.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
+                if ParcelState_Next.z < np.min(gas_data[gas.name]['alt']):
+                    f = lambda x, a, b: a*x**b
+                    params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][:2], gas_data[gas.name]['ppb'][:2], p0=[1, 0.1])
+                    new_gas_conc.append(f(ParcelState_Next.z, params[0], params[1]))
+                elif ParcelState_Next.z > np.max(gas_data[gas.name]['alt']):
+                    f = lambda x, a, b: a*x**b
+                    params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][-2:], gas_data[gas.name]['ppb'][-2:], p0=[1, 0.1])
+                    new_gas_conc.append(f(ParcelState_Next.z, params[0], params[1]))
+                else:
+                    new_gas_conc.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
             ParcelState_Next.TraceGas_population.concs=new_gas_conc
         
+        # print timestep and time for timestep
+        counter+=1
+        print(str(counter)+'/'+str(len(t_eval))+' -- '+str(round(time.time() - steptime0, 2))+ 's/it', flush=True)
+        
+        # check for NaNs
+        total_mass = []
+        for particle, num_conc in zip(ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs):
+            idx_OS=particle.get_species_idx('IEPOX_OS')
+            idx_tet=particle.get_species_idx('tetrol')
+            idx_olig=particle.get_species_idx('tetrol_olig')
+            total_mass.append(num_conc*np.sum(particle.masses))
+        print(ParcelState_Next.S, 1e9*np.sum(np.array(total_mass)))
+        print()
+                
+        # kill the program if there is a NaN
+        if np.isnan(np.sum(total_mass)):
+            print('ERROR')
+            f = open(status_filename, 'w')
+            f.write('killed (NaNs)')
+            f.close()
+            sys.exit()
+        
+        # update parcel state
         parcel_states.append(ParcelState_Next)
         parcel_ts.append(t2)
         ParcelState_0=ParcelState_Next
         
+        # write backup files
         if t2-last_written>=write_every:
             f = open(status_filename, 'w')
             f.write('in progress')
@@ -387,10 +464,8 @@ def restart_les_trajectories(output_path=None, ParcelState_file=None, trajectory
             ParcelState_dict = {'time': t2, 'parcel state': ParcelState_Next, 'dt':dt, 'accom':accom, 'verbosity':verbosity, 'radius_scale':radius_scale, 'solver':solver, 'specdata_path':specdata_path, 'mechanism_data_path':mechanism_data_path, 'processes':processes, 'write_every':write_every,'one_trajectory_settings':one_trajectory_settings, 'aq_reactions':aq_reactions, 'gas_data':gas_data}
             pickle.dump(ParcelState_dict, open(restart_filename, 'wb'))
             last_written=t2
-                        
+        
         #pbar.update(1)
-        counter+=1
-        print(str(counter)+'/'+str(len(t_eval)), flush=True)
     #pbar.close()
     
     print()
@@ -591,7 +666,174 @@ def simulate_parcel_trajectories(N_scenarios=1,
         
     return trajectory_ensemble
 
+
+def simulate_PiChamber_trajectories(output_path=None,
+        dt=1.0,diameters=np.array([100e-9]),N_concs=np.array([1e6]),
+        pHs=np.array([7.0]), accom=1., verbosity=50,
+        radius_scale='lin',solver='CVODE',
+        species_names=['NaCl'], mass_fractions=np.array([1.]),
+        gas_names=None, gas_concentrations=np.array([1.0]),
+        specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
+        trajectory_path='../datasets/', run_number=0,
+        condensation = True, collisions = False, settling = False,
+        cocondensation = False, chemistry = False, freezing = False, write_every=60.):
     
+    scenario = create_pichamber_scenario(trajectory_path=trajectory_path, run_number=run_number,
+                            diameters=diameters,N_concs=N_concs,
+                            pHs=pHs,species_names=species_names,
+                            mass_fractions=mass_fractions,
+                            gas_names=gas_names, gas_concentrations=gas_concentrations, 
+                            dt=dt, specdata_path=specdata_path,
+                            mechanism_data_path=mechanism_data_path,
+                            chemistry=chemistry, cocondensation=cocondensation)
+    
+    if chemistry:
+        aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+    else:
+        aq_reactions = None
+    
+    processes = Processes(
+        condensation = condensation, 
+        collisions = collisions, 
+        settling = settling,
+        cocondensation = cocondensation, 
+        chemistry = chemistry, 
+        freezing = freezing)
+    
+    # equilibrate the S(VI) species
+    if chemistry:
+        if 'sulfate' in chemistry:
+            particle_population=scenario.trajectories_settings[0].population0.particles
+            for ii, (particle) in enumerate(particle_population):
+                water_volume=particle.get_vol_tot()-particle.get_vol_dry()
+                SO4_conc=(particle.masses[particle.get_species_idx('SO4')]/particle.species[particle.get_species_idx('SO4')].molar_mass)/water_volume
+                Hplus_conc=(particle.masses[particle.get_species_idx('H+')]/particle.species[particle.get_species_idx('H+')].molar_mass)/water_volume
+                HSO4_conc=(SO4_conc*Hplus_conc)/0.01
+                H2SO4_conc=(HSO4_conc*Hplus_conc)/1000.0
+                particle.masses[particle.get_species_idx('HSO4')]=HSO4_conc*particle.species[particle.get_species_idx('HSO4')].molar_mass*water_volume
+                particle.masses[particle.get_species_idx('H2SO4')]=H2SO4_conc*particle.species[particle.get_species_idx('H2SO4')].molar_mass*water_volume    
+    
+    # particle=scenario.trajectories_settings[0].population0.particles[0]
+    # for ii, (species) in enumerate(particle.species):
+    #     print(species.name, particle.masses[ii])
+    # sys.exit()
+    
+    trajectory_ensemble = []
+    traj=0
+    
+    for (one_trajectory_settings, start_time, end_time
+          ) in zip(scenario.trajectories_settings,scenario.start_times,scenario.end_times):
+        
+        runtime0 = time.time()
+        ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)
+        t_start=one_trajectory_settings.t_data[0]
+        t_end=one_trajectory_settings.t_data[-1]
+        Ntimes = int((t_end - t_start)/dt + 1)
+        t_eval = np.linspace(t_start, t_end, Ntimes)
+        parcel_states = [ParcelState_0]
+        parcel_ts = [t_eval[0]]
+        last_written=t_start
+        restart_filename=output_path+'/trajectory_'+str(run_number).zfill(6)+'_RESTART.pkl'
+        output_filename=output_path+'/trajectory_'+str(run_number).zfill(6)+'.pkl'
+        status_filename=output_path+'/trajectory_'+str(run_number).zfill(6)+'_STATUS'
+        write_original(ParcelTrajectory(ts=parcel_ts, parcel_states=parcel_states), output_filename, specdata_path=specdata_path)
+
+        print()
+        print('Running trajectory', str(run_number).zfill(6)+',', len(N_concs),'particles...')
+        
+        counter=0        
+        #pbar = tqdm.tqdm(total = len(t_eval))
+        for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+            steptime0 = time.time()
+            
+            ParcelState_Next = update_state(t1, t2,
+                ParcelState_0, processes, dt,
+                radius_scale=radius_scale,solver=solver,
+                accom=accom, verbosity=verbosity,
+                mechanism_data_path=mechanism_data_path,
+                aq_reactions=aq_reactions, rtol=1e-4, atol=1e-8)
+                
+            ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
+            ParcelState_Next.x = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.x_data)
+            ParcelState_Next.y = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.y_data)
+            ParcelState_Next.P = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.P_data)
+            ParcelState_Next.S = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
+            ParcelState_Next.T = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.T_data)
+                    
+            # update the gas concentrations
+            # if cocondensation and ParcelState_Next.TraceGas_population:
+            #     new_gas_conc = []
+            #     for gas in ParcelState_Next.TraceGas_population.gases:
+            #         if ParcelState_Next.z < np.min(gas_data[gas.name]['alt']):
+            #             f = lambda x, a, b: a*x**b
+            #             params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][:2], gas_data[gas.name]['ppb'][:2], p0=[1, 0.1])
+            #             new_gas_conc.append(f(ParcelState_Next.z, params[0], params[1]))
+            #         elif ParcelState_Next.z > np.max(gas_data[gas.name]['alt']):
+            #             f = lambda x, a, b: a*x**b
+            #             params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][-2:], gas_data[gas.name]['ppb'][-2:], p0=[1, 0.1])
+            #             new_gas_conc.append(f(ParcelState_Next.z, params[0], params[1]))
+            #         else:
+            #             new_gas_conc.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
+            #     ParcelState_Next.TraceGas_population.concs=new_gas_conc
+            
+            # for gas, old_conc, new_conc in zip(ParcelState_0.TraceGas_population.gases, ParcelState_0.TraceGas_population.concs, ParcelState_Next.TraceGas_population.concs):
+            #     print(gas.name, old_conc, new_conc)
+            
+                       
+            # print timestep and time for timestep
+            counter+=1
+            print(str(counter)+'/'+str(len(t_eval))+' -- '+str(round(time.time() - steptime0, 2))+ 's/it', flush=True)
+            
+            # check for NaNs
+            total_mass = []
+            for particle, num_conc in zip(ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs):
+                total_mass.append(num_conc*np.sum(particle.masses))
+            print(ParcelState_Next.S, 1e9*np.sum(np.array(total_mass)), ParcelState_Next.TraceGas_population.concs[0])
+            print()
+                    
+            # kill the program if there is a NaN
+            if np.isnan(np.sum(total_mass)):
+                print('ERROR')
+                f = open(status_filename, 'w')
+                f.write('killed (NaNs)')
+                f.close()
+                sys.exit()
+            
+            # update parcel state
+            parcel_states.append(ParcelState_Next)
+            parcel_ts.append(t2)
+            ParcelState_0=ParcelState_Next
+            
+            # write backup files
+            if t2-last_written>=write_every:
+                f = open(status_filename, 'w')
+                f.write('in progress')
+                f.close()
+                overwrite(ParcelTrajectory(ts=parcel_ts, parcel_states=parcel_states), output_filename, specdata_path=specdata_path)
+                ParcelState_dict = {'time': t2, 'parcel state': ParcelState_Next, 'dt':dt, 'accom':accom, 'verbosity':verbosity, 'radius_scale':radius_scale, 'solver':solver, 'specdata_path':specdata_path, 'mechanism_data_path':mechanism_data_path, 'processes':processes, 'write_every':write_every,'one_trajectory_settings':one_trajectory_settings, 'aq_reactions':aq_reactions}
+                pickle.dump(ParcelState_dict, open(restart_filename, 'wb'))
+                last_written=t2
+            
+            #pbar.update(1)
+        #pbar.close()
+        print()
+        print('Solving time:', round(time.time() - runtime0, 2), 'seconds')
+        parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+        print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
+        print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
+        print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')
+        print()
+        
+        traj+=1
+        parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+        trajectory_ensemble.append(parcel_trajectory)
+        f = open(status_filename, 'w')
+        f.write('complete')
+        f.close()
+    
+    return trajectory_ensemble
+
+  
 def get_initial_parcel(one_trajectory_settings, start_time=None):
     
     if one_trajectory_settings.x_data is not None:

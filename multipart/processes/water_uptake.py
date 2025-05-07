@@ -366,8 +366,13 @@ def equilibrate_water(aerosol_population,S0,T0,P0,pH0s):
             water_volume = 1000*(particle.get_vol_tot() - particle.get_vol_dry()) # L
             
             Hplus_conc = 10**(-1.0*pH) # mol/L
-            particle.masses[particle.get_species_idx('H+')]=water_volume*Hplus_conc*particle.species[particle.get_species_idx('H+')].molar_mass        
-    
+            particle.masses[particle.get_species_idx('H+')]=water_volume*Hplus_conc*particle.species[particle.get_species_idx('H+')].molar_mass
+            
+            OH_conc = 10**(-14.0+pH) # mol/L
+            particle.masses[particle.get_species_idx('OH')]=water_volume*OH_conc*particle.species[particle.get_species_idx('OH')].molar_mass
+                
+            
+            
     return aerosol_population
 
 

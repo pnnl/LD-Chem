@@ -20,6 +20,7 @@ import mat73, sys, pickle, warnings
 from scipy.special import erfinv
 from systems import Processes
 import matplotlib.pyplot as plt
+import scipy.optimize as opt
 
 @dataclass
 class TrajectorySettings: # settings driving on trajectory simulation (trajectories can interact)
@@ -139,6 +140,9 @@ def create_parcel_scenario(
         
         if 'H+' not in aero_spec_names:
             aero_spec_names.append('H+')
+            aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
+        if 'OHrad' not in aero_spec_names:
+            aero_spec_names.append('OHrad')
             aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
         
         if np.iterable(Ddry):
@@ -329,7 +333,16 @@ def create_les_scenario(les_trajectory_file,
     if cocondensation and gas_names:
         gas_conc=np.zeros(len(gas_names))
         for ii, (gas) in enumerate(gas_names):
-            gas_conc[ii]=np.interp(LES_data['z'][0], xp=gas_data[gas]['alt'], fp=gas_data[gas]['ppb'])
+            if LES_data['z'][0] < np.min(gas_data[gas]['alt']):
+                f = lambda x, a, b: a*x**b
+                params, covariance = opt.curve_fit(f, gas_data[gas]['alt'][:2], gas_data[gas]['ppb'][:2], p0=[1, 0.1])
+                gas_conc[ii]=f(LES_data['z'][0], params[0], params[1])
+            elif LES_data['z'][0] > np.max(gas_data[gas]['alt']):
+                f = lambda x, a, b: a*x**b
+                params, covariance = opt.curve_fit(f, gas_data[gas]['alt'][-2:], gas_data[gas]['ppb'][-2:], p0=[1, 0.1])
+                gas_conc[ii]=f(LES_data['z'][0], params[0], params[1])
+            else:
+                gas_conc[ii]=np.interp(LES_data['z'][0], xp=gas_data[gas]['alt'], fp=gas_data[gas]['ppb'])
         TraceGas_population = make_TraceGas_population(gas_names, gas_conc, specdata_path=specdata_path)
     else:
         TraceGas_population=None
@@ -368,6 +381,9 @@ def create_les_scenario(les_trajectory_file,
         
             if 'H+' not in aero_spec_names:
                 aero_spec_names.append('H+')
+                aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
+            if 'OH' not in aero_spec_names:
+                aero_spec_names.append('OH')
                 aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
             
             if np.round(np.sum(aero_spec_fracs),9) != 1.0:
@@ -416,6 +432,101 @@ def create_les_scenario(les_trajectory_file,
         start_times=start_times, end_times=end_times, dt=dt)
 
 
+def create_pichamber_scenario(run_number=0, trajectory_path='../datasets/',
+            aerosol_population=None, TraceGas_population=None,
+            diameters=np.array([100e-9]),N_concs=np.array([1e6]),
+            pHs=np.array([7.0]),species_names=np.array(['NaCl']),
+            mass_fractions=np.array([1.]),
+            gas_names=None, gas_concentrations=None,
+            dt=None, specdata_path='../species_data/',
+            mechanism_data_path='../mechamisms/',
+            chemistry=None, cocondensation=False):
+    
+    # read in the trajectories
+    filename=trajectory_path+str(run_number).zfill(6)+'.txt'
+    ts,x,y,z,u,v,w,T,Qv,S=np.loadtxt(filename, delimiter=' ', unpack=True)
+    P=np.repeat(101325, len(ts))
+    S+=1   
+        
+    trajectories_settings = []
+    start_times = []
+    end_times = []
+    aerosol_population=None
+    
+    if cocondensation and gas_names:
+        TraceGas_population = make_TraceGas_population(gas_names, gas_concentrations, specdata_path=specdata_path)
+    else:
+        TraceGas_population=None
+    
+    if chemistry:
+        aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+    else:
+        aq_reactions = None    
+    
+    if aerosol_population == None:
+        Npart = len(diameters)
+        
+        # check the input shapes
+        if len(N_concs) != Npart:
+            print('WARNING: Shape of number concentrations is not consistent with the number of particles!')
+            sys.exit()
+        elif len(pHs) != Npart:
+            print('WARNING: Shape of pHs is not consistent with the number of particles!')
+            sys.exit()
+        elif len(species_names) != Npart:
+            print('WARNING: Shape of species names is not consistent with the number of particles!')
+            sys.exit()
+        elif len(mass_fractions) != Npart:
+            print('WARNING: Shape of mass fractions is not consistent with the number of particles!')
+            sys.exit()
+            
+        particles = [None]*Npart
+        num_concs = [None]*Npart
+        ids = [None]*Npart 
+        
+        for ii in range(len(species_names)):
+                        
+            aero_spec_names, aero_spec_fracs = get_aero_spec_fracs(
+                molecule_names=species_names[ii], molecule_mass_fracs=mass_fractions[ii],
+                specdata_path=specdata_path)            
+                        
+            if 'H+' not in aero_spec_names:
+                aero_spec_names.append('H+')
+                aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
+            if 'OH' not in aero_spec_names:
+                aero_spec_names.append('OH')
+                aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
+            
+            if np.round(np.sum(aero_spec_fracs),9) != 1.0:
+                print(aero_spec_fracs)
+                print('WARNING: Mass fractions for particle', ii, 'does not equal 1!')
+                sys.exit()
+            
+            OneParticle = make_particle(diameters[ii], aero_spec_names, aero_spec_fracs, specdata_path=specdata_path, reactions=aq_reactions, gases=TraceGas_population)
+            particles[ii] = OneParticle
+            num_concs[ii] = N_concs[ii]
+            ids[ii] = ii
+        
+        aerosol_population = ParticlePopulation(particles=particles, num_concs=num_concs, ids=ids)
+        aerosol_population = equilibrate_water(aerosol_population,S[0],T[0],P[0],pHs)
+
+        one_settings = TrajectorySettings(
+            x0=x[0],y0=y[0],z0=z[0],u0=u[0],
+            v0=v[0],w0=w[0],
+            S0=S[0], T0=T[0], P0=P[0],
+            u_data=u, v_data=v, w_data=w,
+            t_data=ts, 
+            x_data=x, y_data=y, z_data=z,
+            S_data=S, P_data=P, T_data=T,
+            population0=aerosol_population, gas0=TraceGas_population)
+        
+        trajectories_settings.append(one_settings)
+        start_times.append(min(ts))
+        end_times.append(max(ts))
+        
+    return Scenario(
+        trajectories_settings=trajectories_settings,
+        start_times=start_times, end_times=end_times, dt=dt)
 
 
 
@@ -495,7 +606,9 @@ def molecules_to_fracs(molecule_name,molecule_fraction=1.,specdata_path='../spec
     elif molecule_name == 'tetrol_olig':
         ion_names = ['tetrol_olig']
         num_ions_per_molecule = [1]
-        
+    elif molecule_name == 'IEPOX_OH_SOA':
+        ion_names = ['IEPOX_OH_SOA']
+        num_ions_per_molecule = [1]
     else:
         warnings.warn('warning: ' + molecule_name + ' is not (yet) included as a molecule; returning original')
 

@@ -194,13 +194,14 @@ class TrajectoryEnsemble:
 def update_state(t1, t2,
         ParcelState_0, processes, dt, verbosity=50, 
         accom=1.,radius_scale='lin',solver='CVODE', 
-        mechanism_data_path='../mechanisms/', aq_reactions=None):
+        mechanism_data_path='../mechanisms/', aq_reactions=None,
+        rtol=1e-10, atol=1e-10):
     
     ParcelState_1, feedbacks_1 = update_particle_population(
         ParcelState_0, processes, dt, 
         radius_scale=radius_scale,solver=solver,
         accom=accom, verbosity=verbosity,mechanism_data_path=mechanism_data_path,
-        aq_reactions=aq_reactions)  
+        aq_reactions=aq_reactions, rtol=rtol, atol=atol)
     
     ParcelState_2 = update_air(t2,
         ParcelState_1, processes, feedbacks_1, dt, 
@@ -212,7 +213,8 @@ def update_state(t1, t2,
 def update_particle_population(
         ParcelState_0, processes, dt, accom=1.,
         verbosity=50,radius_scale='lin',solver='CVODE',
-        mechanism_data_path='../mechanisms/', aq_reactions=None): # fix later -- put in species
+        mechanism_data_path='../mechanisms/', aq_reactions=None,
+        rtol=1e-10, atol=1e-10): # fix later -- put in species
     t0 = 0.
     # switches0 = [False]
     # wrap all of the condensation functions in to its own updater? "condense"
@@ -262,7 +264,7 @@ def update_particle_population(
                                                   processes, P0, T0, S0,
                                                   solver=solver, 
                                                   verbosity=verbosity, dt=dt,
-                                                  aq_reactions=aq_reactions)
+                                                  aq_reactions=aq_reactions, rtol=rtol, atol=atol)
             all_masses_next.append(species_masses_next)
     else:
         all_masses_next=[]
@@ -376,8 +378,8 @@ def water_condensation_solver(particle_population, P, T, S, wv, accom, processes
 
 def particle_composition_solver(particle, num_conc, TraceGas_population, processes, P, T, 
                                 S, dt=1.0, solver='CVODE', verbosity=50, 
-                                aq_reactions=None):
-    
+                                aq_reactions=None, atol=1e-10, rtol=1e-10):
+        
     masses_next=[]
     for mass in particle.masses:
         masses_next.append(mass)
@@ -444,14 +446,11 @@ def particle_composition_solver(particle, num_conc, TraceGas_population, process
     h2o_NonOrg_radius = ((3*(water_volume_0+V_NonOrg))/(4.0*np.pi))**(1.0/3.0)
     inorg_radius = ((3*V_NonOrg)/(4.0*np.pi))**(1.0/3.0)
     radius = particle.get_Dwet()/2.0
-    l_org = radius-h2o_NonOrg_radius # m  
-      
-    rtol=1.0E-10
-    atol=1.0E-10
+    l_org = radius-h2o_NonOrg_radius # m
 
     if processes.cocondensation and aq_reactions and TraceGas_population:
         
-        rhs = lambda t, Caq: cocondensation.dCaq_dt(Caq, aq_names, Cgas_0, gas_names, gas_molar_masses, gas_alphas, gas_Heffs, T, S, radius, l_org, inorg_radius, water_volume_0) + aqueous_chemistry.dCaq_dt(Caq, reactants, products, rates, aq_names, T)
+        rhs = lambda t, Caq: cocondensation.dCaq_dt(Caq, aq_names, Cgas_0, gas_names, gas_molar_masses, gas_alphas, gas_Heffs, T, S, radius, l_org, inorg_radius, water_volume_0) + aqueous_chemistry.dCaq_dt(Caq, reactants, products, rates, aq_names, T)        
         
         if solver == 'CVODE': 
             prob = Explicit_Problem(rhs, Caq_0)
@@ -463,11 +462,10 @@ def particle_composition_solver(particle, num_conc, TraceGas_population, process
             Caq_next=output[1][-1] # mol/m^3
             
         elif solver == 'ode15s':
-            ode15s = ode(rhs).set_integrator('lsoda', method='bdf', 
+            ode15s = ode(rhs).set_integrator('lsoda', method='bdf',
                                              rtol=rtol, atol=atol, nsteps=5000)
             ode15s.set_initial_value(Caq_0, t0)
             Caq_next = ode15s.integrate(ode15s.t+dt)  # mol/m^3
-
 
     elif processes.cocondensation and TraceGas_population:
         
@@ -520,6 +518,12 @@ def particle_composition_solver(particle, num_conc, TraceGas_population, process
     #         print(aq_names[ii], Caq_0[ii], Caq_next[ii])
     # print()
     # sys.exit()
+    
+    # adjust the OHrad concentration based on the pH
+    Hplus_conc_next=0.001*Caq_next[np.where(np.array(aq_names)=='H+')[0][0]] # mol/L
+    pH_next=-1.0*np.log10(Hplus_conc_next)
+    OH_conc = 10**(-14.0+pH_next) # mol/L
+    Caq_next[np.where(np.array(aq_names)=='OH')[0][0]]=1000*OH_conc
     
     for Caq, species in zip(Caq_next, aq_names):
         idx=particle.get_species_idx(species)
@@ -594,7 +598,7 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt, verbosity=50,C0=3.,a
                 gas = feedbacks.gases.names[ii]
                 dppb_dt = feedbacks.gases.dc_dts[ii]
                 TraceGas_idx = ParcelState_next.TraceGas_population.get_species_idx(gas)
-                ParcelState_next.TraceGas_population.concs[TraceGas_idx] += dppb_dt    
+                ParcelState_next.TraceGas_population.concs[TraceGas_idx] += dppb_dt     
     
     # except:
     #     output = solve_ivp(rhs, [0.,dt], state0)

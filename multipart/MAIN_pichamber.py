@@ -4,40 +4,51 @@
 @authors: Laura Fierce and Payton Beeler
 """
 import numpy as np
-from driver import simulate_les_trajectories
-# import visualization
-# import matplotlib.pyplot as plt
-# from initialization import splat_setup, optimize_splat_size_distribution
-import pickle, sys
+from driver import simulate_PiChamber_trajectories
+import pickle, sys, os
 
 # %% LES trajectory
-diameters=pickle.load(open('diameters', 'rb'))
-num_concs=pickle.load(open('num_concs', 'rb'))
-aero_spec_names=pickle.load(open('aero_spec_names', 'rb'))
-aero_spec_fracs=pickle.load(open('aero_spec_fracs', 'rb'))
-pHs=pickle.load(open('pHs', 'rb'))
-gas_data=pickle.load(open('gas_data', 'rb'))
-les_number=pickle.load(open('trajectory_number', 'rb'))
+# diameters=pickle.load(open('diameters', 'rb'))
+# num_concs=pickle.load(open('num_concs', 'rb'))
+# aero_spec_names=pickle.load(open('aero_spec_names', 'rb'))
+# aero_spec_fracs=pickle.load(open('aero_spec_fracs', 'rb'))
+# pHs=pickle.load(open('pHs', 'rb'))
+# gas_data=pickle.load(open('gas_data', 'rb'))
+# les_number=pickle.load(open('trajectory_number', 'rb'))
 
+run_number=0
+trajectory_path='/Users/beel083/Downloads/PiChamber_NaCl_100cc_9K_50nm_2p5rate_trajectories/'
 
-gas_names = ['SO2', 'O3', 'H2O2', 'NO2', 'IEPOX']
-les_output_file = sys.argv[1]+'/parcel_traces_'+les_number+'.pkl' #'../datasets/parcel_traces_se/parcel_traces_000000.pkl'  
+# aerosol inputs
+diameters=np.array([50.0e-9])
+num_concs=np.array([100*100**3])
+aero_spec_names=[['AS']]
+aero_spec_fracs=[[1.0]]
+pHs=[0.9]
 
-print('Reading', les_output_file)
+# gas inputs
+gas_names = ['IEPOX']
+gas_concentrations = [10.0] # ppb
 
-trajectory = simulate_les_trajectories(les_output_file=les_output_file, output_path=str(sys.argv[2]),
-        dt=6.0,diameters=diameters,N_concs=num_concs,
+print('Reading', trajectory_path+str(run_number).zfill(6)+'.txt')
+
+trajectory = simulate_PiChamber_trajectories(output_path=str(os.getcwd()),
+        dt=0.1,diameters=diameters,N_concs=num_concs,
         pHs=pHs, accom=1., verbosity=50,
         radius_scale='log',solver='ode15s',
         species_names=aero_spec_names, mass_fractions=aero_spec_fracs,
-        gas_names=gas_names, gas_data=gas_data,
+        gas_names=gas_names, gas_concentrations=gas_concentrations,
         specdata_path='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/species_data/', 
         mechanism_data_path='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/mechanisms/',
+        trajectory_path=trajectory_path, run_number=run_number,
         condensation = True, collisions = False, settling = False,
-        cocondensation = True, chemistry = ['sulfate', 'IEPOX'], freezing = False, write_every=60)
+        cocondensation = True, chemistry = ['IEPOX'], freezing = False, write_every=1.0)
     
 
 #pickle.dump(trajectory, open('../'+output_directory+'/'+output_file+'.pkl','wb'))
+
+
+
 
 
 

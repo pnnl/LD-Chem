@@ -35,8 +35,10 @@ def dCaq_dt(Caq_0, reactants_all, products_all, rates, aq_names, T):
             dCaq_dt_all=HNO2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T)
         elif reactants==['S(IV)','O2']:
             dCaq_dt_all=O2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T)
-        elif reactants==['IEPOX','H2O']:
+        elif reactants==['IEPOX','H2O'] and products==['IEPOX_OS','tetrol','tetrol_olig']:
             dCaq_dt_all=IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T)
+        elif reactants==['IEPOX','OHrad']:
+            dCaq_dt_all=IEPOX_OH_chemistry(Caq_0, dCaq_dt_all, aq_names, T)
         else:
             dCaq = rate
             for reactant in reactants:
@@ -44,7 +46,7 @@ def dCaq_dt(Caq_0, reactants_all, products_all, rates, aq_names, T):
                     if name == reactant:
                         idx = jj
                 dCaq *= Caq_0[idx] # mol/L/s
-                
+            
             for reactant in reactants:
                 for jj, (name) in enumerate(aq_names):
                     if name == reactant:
@@ -55,7 +57,8 @@ def dCaq_dt(Caq_0, reactants_all, products_all, rates, aq_names, T):
                     if name == product:
                         idx = jj
                 dCaq_dt_all[idx]+=dCaq # mol/m^3/s
-
+                
+    # print()
     return dCaq_dt_all # mol/m^3/s
 
 
@@ -285,7 +288,7 @@ def O2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
 
 @nb.njit()
 def IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
-    
+
     HSO4_conc = 0
     NH4_conc = 0
     SO4_conc = 0
@@ -338,6 +341,47 @@ def IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
         dCaq_dt_all[SO4_idx] -= kaqs[3]*Hplus_conc*SO4_conc*IEPOX_conc
     
     return dCaq_dt_all
+
+@nb.njit()
+def IEPOX_OH_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
+    
+    for ii, (name) in enumerate(aq_names):
+        if name == 'OHrad':
+            OHrad_conc=Caq_0[ii] # mol/m^3
+            OHrad_idx=ii
+        elif name == 'IEPOX':
+            IEPOX_conc=Caq_0[ii] # mol/m^3
+            IEPOX_idx=ii
+        elif name == 'IEPOX_OH_SOA':
+            SOA_idx=ii
+        elif name == 'HO2':
+            HO2_idx=ii 
+    
+    # IEPOX_OH_SOA is made of:
+    # .0006% DHBO
+    # 35.4% DHMP
+    # 13.8% glycolaldehyde and methylgloxal
+    # 6.3% glyoxyl and hydroxyacetone
+    # 25.9% oxygenated IEPOX species
+    # 18.6% HBDO
+    # by moles
+    
+    rate = 2.4E8*np.exp(-1520/T) # m^3/mol/s
+    
+    # rate = 5.4E-6
+    
+    
+    dCaq_SOA=rate*IEPOX_conc*OHrad_conc # total for all SOA products    
+    dCaq_dt_all[IEPOX_idx] -= dCaq_SOA # mol/m^3*s
+    dCaq_dt_all[OHrad_idx] -= dCaq_SOA # mol/m^3*s
+    dCaq_dt_all[SOA_idx] += dCaq_SOA # mol/m^3*s
+    dCaq_dt_all[OHrad_idx] += (6E-5+0.354)*dCaq_SOA
+    dCaq_dt_all[HO2_idx] += (0.138+0.063+0.259+0.186)*dCaq_SOA
+    
+    return dCaq_dt_all
+    
+    
+
 
 
 

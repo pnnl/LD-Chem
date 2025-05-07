@@ -354,29 +354,54 @@ def cloud_composition(trajectory, splat_file, splat_species, size_distribution_f
     return fig
    
     
+def Particle_MassFracs(particle_masses, particle_species, specdata_path='../species_data'):
+    
+    dry_species = []
+    dry_idx = []
+    for species in particle_species:
+        try: 
+            SpeciesData = particles.retrieve_one_species(species, specdata_path=specdata_path)
+            if SpeciesData.density > 0.0 and species != 'H2O':
+                dry_species.append(species)
+                dry_idx.append(np.where(particle_species==species)[0][0])
+        except Exception:
+            pass
+    dry_species = np.array(dry_species)
+    particle_dry_masses = particle_masses[:,:,dry_idx] # this pulls out only the aerosol species
+    particle_dry_MassFracs = np.zeros(particle_dry_masses.shape)
+    total_dry_masses=np.sum(particle_dry_masses, axis=2)    
+    total_dry_masses = np.repeat(total_dry_masses[:,:,np.newaxis], len(dry_species), axis=2)
+    for ii in range((len(particle_dry_masses[0]))):
+        particle_dry_MassFracs[:,ii,:]=particle_dry_masses[:,ii,:]/total_dry_masses[:,ii,:]    
+    return particle_dry_MassFracs, dry_species
+
+def Particle_Concentrations(particle_masses, particle_species, specdata_path='../species_data'):
+    
+    SpeciesData = particles.retrieve_one_species('H2O', specdata_path=specdata_path)
+    H2O_idx = np.where(particle_species=='H2O')[0][0]
+    water_volumes = particle_masses[:,:,H2O_idx]/SpeciesData.density    
+    concentrations=np.zeros(particle_masses.shape)
+    concentrations[:]=np.nan
+    for ii, (species) in enumerate(particle_species):
+        try: 
+            SpeciesData = particles.retrieve_one_species(species, specdata_path=specdata_path)
+            moles_x = particle_masses[:,:,ii]/SpeciesData.molar_mass
+            concentrations[:,:,ii]=moles_x/water_volumes
+        except Exception:
+            pass
+    return concentrations # mol/m^3
 
 
-def initial_N_MassFracs(trajectory, ams_file, splat_file, splat_species,
-                        mass_thresholds, start_time=None, end_time=None,
-                        splat_cutoff=85):
-    
-    ams_mass_fractions, ams_mass_fraction_error, measured_total_mass, measured_total_mass_error = ams_mass_fraction(ams_file, start_time, end_time)       
-    splat_number_fraction, splat_number_fraction_error = splat_number_fractions(splat_file, splat_species, start_time, end_time)   
-    
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(2.0*6.4, 1.0*4.8), sharey=True)
-    widths=0.4
-    
-    # # measured values
-    ax2_positions=np.arange(0, len(ams_mass_fractions.keys()), 1)
-    ax2.bar(ax2_positions-widths, ams_mass_fractions.values(), yerr=ams_mass_fraction_error.values(), width=widths, facecolor='grey', edgecolor='k', label='measured', align='edge')
-    ax1_positions=np.arange(0, len(splat_number_fraction.keys()), 1)
-    ax1.bar(ax1_positions-widths, splat_number_fraction.values(), yerr=splat_number_fraction_error.values(), width=widths, facecolor='grey', edgecolor='k', align='edge')
+def NumFracs_MassFracs(particles, particle_species, splat_file, splat_species,
+                        mass_thresholds, splat_cutoff=85, specdata_path='../species_data'):
 
-    particle_classes = classify(trajectory['particles'][0], trajectory['particle species'], splat_species, mass_thresholds) 
-    N_idx = np.where(trajectory['particle species']=='num conc')[0][0]
-    particle_num_concs = trajectory['particles'][0, :, N_idx]
-    Ddry_idx = np.where(trajectory['particle species']=='Ddry')[0][0]
-    particle_diameters = trajectory['particles'][0, :, Ddry_idx]
+    particle_classes = classify(particles, particle_species, splat_species, mass_thresholds, specdata_path=specdata_path) 
+    
+    # model number fraction
+    N_idx = np.where(particle_species=='num conc')[0][0]
+    particle_num_concs = particles[:, N_idx]
+    Ddry_idx = np.where(particle_species=='Ddry')[0][0]
+    particle_diameters = particles[:, Ddry_idx]
     number_fraction={}
     idx=np.where(particle_diameters*1e9>=splat_cutoff)    
     Ntot=np.sum(particle_num_concs[idx[0]])
@@ -384,38 +409,20 @@ def initial_N_MassFracs(trajectory, ams_file, splat_file, splat_species,
         idx=np.where(np.logical_and(particle_classes==spec, particle_diameters*1e9>=splat_cutoff))
         number_fraction[spec]=np.sum(particle_num_concs[idx[0]])/Ntot
 
-    # modeled mass fraction
+    # model mass fraction
     masses={}
-    for species in ams_mass_fractions.keys():
-        masses[species]=0
-    # for ii,(particle,num_conc) in enumerate(zip(particle_population.particles,particle_population.num_concs)):
-    for species in ams_mass_fractions.keys():
-        idx = np.where(trajectory['particle species']==species)[0][0]
-        masses[species]+=np.sum(particle_num_concs*trajectory['particles'][0, :, idx])     
+    for group in mass_thresholds.keys():
+        masses[group]=0
+    for group in mass_thresholds.keys():
+        for species in mass_thresholds[group][1]:
+            idx = np.where(particle_species==species)[0][0]
+            masses[group]+=np.sum(particle_num_concs*particles[:, idx]) 
     total_mass=np.sum(list(masses.values()))
     mass_fraction={}
     for group in masses.keys():
         mass_fraction[group]=masses[group]/total_mass
-        
-    for spec, pos in zip(splat_number_fraction.keys(), ax1_positions):
-        ax1.bar(pos, number_fraction[spec], width=widths, facecolor='w', edgecolor='k', align='edge')
-    for spec, pos in zip(ams_mass_fractions.keys(), ax2_positions):
-        if pos==0:
-            ax2.bar(pos, mass_fraction[spec], width=widths, facecolor='w', edgecolor='k', align='edge', label='modeled')
-        else:
-            ax2.bar(pos, mass_fraction[spec], width=widths, facecolor='w', edgecolor='k', align='edge')
 
-    ax1.set_title('number', pad=15)
-    ax2.set_title('mass', pad=15)
-    ax2.set_ylim(0, 1)
-    ax1.set_ylabel('fraction', labelpad=15)
-    ax1.set_xticks(ax1_positions)
-    ax1.set_xticklabels(splat_number_fraction.keys())
-    ax2.set_xticks(ax2_positions)
-    ax2.set_xticklabels(ams_mass_fractions.keys())
-    ax2.legend()
-    
-    return fig
+    return number_fraction, mass_fraction
 
 
 def ModelComposition(trajectory, mass_thresholds, splat_species, resolution=60):
@@ -702,13 +709,52 @@ def VerticalComposition(trajectory, mass_thresholds, splat_species, splat_file,
 
     
 
-def classify(particle_masses, particle_species, splat_species, mass_thresholds):
+def classify(particle_masses, particle_species, mass_thresholds,
+             specdata_path='../species_data',
+             reassignment=False):
+    
+    """
+    Parameters
+    ----------
+    particle_masses : array
+        N x M numpy array containing the mass of species 
+        in each particle. N is the number of particles 
+        and M is the number of chemical species.
+    particle_species : array or list
+        Name of species corresponding to each column 
+        in particle_masses.
+    splat_species : dict
+        Dict of miniSPLAT species which belong 
+        to each particle type. For example, grouping 
+        of all organics in one class.
+    mass_thresholds : dict
+        Minimum, average, and standard deviation for mass 
+        fraction of species necessary for classification. 
+        Each dict element must have format 
+        [[minimum mass fraction, average mass fraction, 
+          standard deviation of mass fraction], 
+         [species 1 included, species 2 included, ...]].
+    specdata_path : string, optional
+        Where aerosol species informatio is stored. 
+        Default is ../species_data.
+    reassignment : boolean
+        Determines classification of particles which do not 
+        meet the minimum mass threshold of any class. If 
+        true, particles are assigned to the class for which 
+        they have the highest mass fraction. If false, 
+        these particles are assigned class of 'none'.
+
+    Returns
+    -------
+    classes : array
+        N-shaped array of particle classes.
+    """
     
     dry_species = []
     dry_idx = []
     for species in particle_species:
         try: 
-            SpeciesData = particles.retrieve_one_species(species)
+            SpeciesData = particles.retrieve_one_species(species, specdata_path=specdata_path)
             if SpeciesData.density > 0.0 and species != 'H2O':
                 dry_species.append(species)
                 dry_idx.append(np.where(particle_species==species)[0][0])
@@ -731,16 +777,20 @@ def classify(particle_masses, particle_species, splat_species, mass_thresholds):
                     mass+=mass_fraction[idx[0][0]]
                 if mass>=mass_thresholds[pclass][0][0]:
                     ptype=pclass
+                    break
 
             if not ptype:
-                difference={}
-                for pclass in mass_thresholds.keys():
-                    mass=0
-                    for spec in mass_thresholds[pclass][1]:
-                        idx = np.where(dry_species==spec)
-                        mass+=abs(mass_fraction[idx[0][0]])
-                    difference[pclass]=mass_thresholds[pclass][0][0]-mass
-                ptype=min(difference, key=difference.get)
+                if reassignment:
+                    difference={}
+                    for pclass in mass_thresholds.keys():
+                        mass=0
+                        for spec in mass_thresholds[pclass][1]:
+                            idx = np.where(dry_species==spec)
+                            mass+=abs(mass_fraction[idx[0][0]])
+                        difference[pclass]=mass_thresholds[pclass][0][0]-mass
+                    ptype=min(difference, key=difference.get)
+                else:
+                    ptype='none'
             
         classes.append(ptype)
 
@@ -749,21 +799,163 @@ def classify(particle_masses, particle_species, splat_species, mass_thresholds):
 def all_real(mass_fractions):
   return all(x >= 0 for x in abs(mass_fractions))
 
+
 def get_CD_status(wet_diameters, dry_diameters, kappas, Ns, T):
-    
     CD_status=np.zeros(len(wet_diameters))
     for ii, (Ddry, Dwet, kappa, N) in enumerate(zip(dry_diameters, wet_diameters, kappas, Ns)):
         r=Dwet/2.
         r_dry=Ddry/2.
-        neg_Seq = lambda r: -1.0 * water_uptake.Seq(r, r_dry, T, kappa)
+        neg_Seq = lambda r: -1.0 * water_uptake.Seq(r, r_dry, T, kappa)        
         out = fminbound(neg_Seq, r_dry, r_dry * 1e4, xtol=1e-10, full_output=True, disp=0)
         r_crit, s_crit = out[:2]
-        s_crit *= -1.0  # multiply by -1 to undo negative flag for Seq
+        s_crit *= -1.0  # multiply by -1 to undo negative flag for Seq        
         if r >= r_crit:
             CD_status[ii]=N 
         else:
             CD_status[ii]=-1.0*N 
+    
     return CD_status # negative values are -1*number concentration for interstitials, positive values are number concentration of cloud droplet residuals
+
+    
+def get_Dcrit(wet_diameters, dry_diameters, kappas, Ns, T):
+    
+    Dcrits=np.zeros(len(wet_diameters))
+    for ii, (Ddry, Dwet, kappa, N) in enumerate(zip(dry_diameters, wet_diameters, kappas, Ns)):
+        r_dry=Ddry/2.
+        neg_Seq = lambda r: -1.0 * water_uptake.Seq(r, r_dry, T, kappa)
+        out = fminbound(neg_Seq, r_dry, r_dry * 1e4, xtol=1e-10, full_output=True, disp=0)
+        r_crit, s_crit = out[:2]
+        Dcrits[ii]=2.0*r_crit
+        
+    return Dcrits
+    
+    
+def miniSPLAT_CloudComposition(splat_file, size_distribution_file, splat_species):
+    
+    # read miniSPLAT data from file
+    filename = splat_file
+    raw_data = np.loadtxt(filename, dtype='str')
+    full_SPLAT_data = {}
+    # SPLAT_subdata = {}
+    for i in range(0, len(raw_data[0])):
+        full_SPLAT_data[str(raw_data[0, i])] = np.array(raw_data[1:, i], dtype = 'float64')
+        # SPLAT_subdata[str(raw_data[0, i])] = np.zeros(0)
+    
+    # pull out the miniSPLAT data corresponding to initialization times
+    # idx = np.where(np.logical_and(full_SPLAT_data['Time']>0, full_SPLAT_data['Time']<=86400))
+    # for key in full_SPLAT_data.keys():
+    #     SPLAT_subdata[key] = np.array((full_SPLAT_data[key][idx[0]]))
+    
+    # create dict of all the species in the miniSPLAT data
+    minisplat_species = []
+    for key in full_SPLAT_data.keys():
+        # if key != 'Time':
+        minisplat_species.append(key)
+
+    # find the full time series of number fraction for each class
+    minisplat_fraction = {}
+    minisplat_fraction['Time']=full_SPLAT_data['Time']
+    for reduced_species in splat_species.keys():
+        summation = np.zeros(len(full_SPLAT_data['Time']))
+        for species in splat_species[reduced_species]:
+            for i in range(0, len(summation)):
+                summation[i] = summation[i] + full_SPLAT_data[species][i]
+        minisplat_fraction[reduced_species] = summation
+    
+    # read FIMS data from file
+    filename = size_distribution_file
+    raw_data = np.loadtxt(filename, delimiter = ',', dtype='str', skiprows = 100)
+    for i in range(0, len(raw_data)):
+        for j in range(0, len(raw_data[0])):
+            raw_data[i, j] = raw_data[i, j].strip()
+    FIMS_data = {}
+    FIMS_data[str(raw_data[0, 0])] = np.array(raw_data[1:, 0], dtype = 'float64')
+    for i in range(56, len(raw_data[0])):
+        FIMS_data[str(raw_data[0, i])] = np.array(raw_data[1:, i], dtype = 'float64')
+    FIMS_data['N_Dp'] = np.array(raw_data[1:, 1:56], dtype = 'float64')
+
+    # get splat data only in cloud and CVI inlet
+    CDR_idx = np.where(np.logical_and(FIMS_data['Cloud_flag']==1.0, FIMS_data['CVI_flag']==1.0))
+    CDR_times = FIMS_data['Start_UTC'][CDR_idx[0]] 
+    interstitial_idx = np.where(np.logical_and(FIMS_data['Cloud_flag']==1.0, FIMS_data['CVI_flag']==0.0))
+    interstitial_times = FIMS_data['Start_UTC'][interstitial_idx[0]] 
+    
+    CDRs = {}
+    interstitials = {}
+    for species in splat_species.keys():
+        CDRs[species]=[]
+        interstitials[species]=[]
+    
+    for t in CDR_times:
+        idx = np.where(np.round(minisplat_fraction['Time'],0)==np.round(t,0))[0]
+        if len(idx)>0:
+            for species in splat_species.keys():
+                CDRs[species].append(minisplat_fraction[species][idx[0]])
+    for species in splat_species.keys():
+        CDRs[species]=np.array(CDRs[species])
+        
+    for t in interstitial_times:
+        idx = np.where(np.round(minisplat_fraction['Time'],0)==np.round(t,0))[0]
+        if len(idx)>0:
+            for species in splat_species.keys():
+                interstitials[species].append(minisplat_fraction[species][idx[0]])
+    for species in splat_species.keys():
+        interstitials[species]=np.array(interstitials[species])
+    
+    return CDRs, interstitials
+
+
+def IEPOX_formation_rate(Caq_0, dCaq_dt_all, aq_names, T):
+
+    HSO4_conc = np.zeros(Caq_0.shape)
+    NH4_conc = np.zeros(Caq_0.shape)
+    SO4_conc = np.zeros(Caq_0.shape)
+    for ii, (name) in enumerate(aq_names):
+        if name == 'H2O':
+            H2O_conc=0.001*Caq_0[:,:,ii]            
+            H2O_idx = ii
+        elif name == 'H+':
+            Hplus_conc=0.001*Caq_0[:,:,ii]
+        elif name == 'HSO4':
+            HSO4_conc=0.001*Caq_0[:,:,ii]
+            HSO4_idx = ii
+        elif name == 'SO4':
+            SO4_conc=0.001*Caq_0[:,:,ii]
+            SO4_idx = ii
+        elif name == 'NH4':
+            NH4_conc=0.001*Caq_0[:,:,ii]
+            NH4_idx = ii
+        elif name == 'IEPOX':
+            IEPOX_conc=Caq_0[:,:,ii]
+            IEPOX_idx = ii
+        elif name == 'IEPOX_OS':
+            IEPOX_OS_idx = ii
+        elif name == 'tetrol':
+            tetrol_conc = Caq_0[:,:,ii]
+            tetrol_idx = ii
+        elif name == 'tetrol_olig':
+            tetrol_olig_idx = ii
+            
+    
+    kaqs = [1.8e-4, 2.62e-6, 6.2e-8, 1.91e-4]
+    kaq = kaqs[0]*Hplus_conc*H2O_conc + kaqs[1]*HSO4_conc*H2O_conc + kaqs[2]*NH4_conc*H2O_conc + kaqs[3]*Hplus_conc*SO4_conc # 1/s    
+    
+    tau_olig=24 # AS: 12, ABS: 1.5
+    BETA=0.35 # AS: 0.35, ABS: 0.6
+    
+    dCaq_dt_all[:,:,IEPOX_idx] -= kaq*IEPOX_conc # mol/m^3*s    
+    dCaq_dt_all[:,:,IEPOX_OS_idx] += BETA*kaq*IEPOX_conc # mol/m^3*s
+    dCaq_dt_all[:,:,tetrol_idx] += (1-BETA)*kaq*IEPOX_conc # mol/m^3*s
+    dCaq_dt_all[:,:,tetrol_olig_idx] += (1/(tau_olig*3600))*tetrol_conc # mol/m^3*s
+    dCaq_dt_all[:,:,tetrol_idx] -= (1/(tau_olig*3600))*tetrol_conc # mol/m^3*s
+    
+    dCaq_dt_all[:,:,H2O_idx] -= (kaqs[0]*Hplus_conc*H2O_conc+kaqs[1]*HSO4_conc*H2O_conc+kaqs[2]*NH4_conc*H2O_conc)*IEPOX_conc
+    dCaq_dt_all[:,:,HSO4_idx] -= kaqs[1]*HSO4_conc*H2O_conc*IEPOX_conc    
+    dCaq_dt_all[:,:,HSO4_idx] -= kaqs[1]*HSO4_conc*H2O_conc*IEPOX_conc
+    dCaq_dt_all[:,:,NH4_idx] -= kaqs[2]*NH4_conc*H2O_conc*IEPOX_conc
+    dCaq_dt_all[:,:,SO4_idx] -= kaqs[3]*Hplus_conc*SO4_conc*IEPOX_conc
+    
+    return dCaq_dt_all
  
 
     
