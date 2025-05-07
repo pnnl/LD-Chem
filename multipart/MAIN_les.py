@@ -11,7 +11,6 @@ from driver import simulate_les_trajectories
 import pickle, sys
 
 # %% LES trajectory
-
 diameters=pickle.load(open('diameters', 'rb'))
 num_concs=pickle.load(open('num_concs', 'rb'))
 aero_spec_names=pickle.load(open('aero_spec_names', 'rb'))
@@ -20,27 +19,35 @@ pHs=pickle.load(open('pHs', 'rb'))
 gas_data=pickle.load(open('gas_data', 'rb'))
 les_number=pickle.load(open('trajectory_number', 'rb'))
 
-gas_names = ['SO2', 'O3', 'H2O2', 'NO2', 'IEPOX']
-les_output_file = '../../datasets/parcel_traces_se/parcel_traces_'+les_number+'.pkl' #'../datasets/parcel_traces_se/parcel_traces_000000.pkl'  
 
-print('Reading', les_output_file)   
- 
-trajectory = simulate_les_trajectories(les_output_file=les_output_file,
-        dt=5.0,diameters=diameters,N_concs=num_concs,
+# ====================================
+# N = 4
+# diameters=diameters[:N+1]
+# num_concs=num_concs[:N+1]
+# aero_spec_names=aero_spec_names[:N+1]
+# aero_spec_fracs=aero_spec_fracs[:N+1]
+# pHs=pHs[:N+1]
+# ====================================
+
+gas_names = ['SO2', 'O3', 'H2O2', 'NO2', 'IEPOX']
+les_output_file = sys.argv[1]+'/parcel_traces_'+les_number+'.pkl' #'../datasets/parcel_traces_se/parcel_traces_000000.pkl'  
+
+print('Reading', les_output_file)
+
+trajectory = simulate_les_trajectories(les_output_file=les_output_file, output_path=str(sys.argv[2]),
+        dt=3.0,diameters=diameters,N_concs=num_concs,
         pHs=pHs, accom=1., verbosity=50,
-        radius_scale='log',solver='CVODE',
+        radius_scale='log',solver='ode15s',
         species_names=aero_spec_names, mass_fractions=aero_spec_fracs,
         gas_names=gas_names, gas_data=gas_data,
-        specdata_path='../../species_data/', mechanism_data_path='../../mechanisms/',
+        specdata_path='/rcfs/projects/partikkel/multipart/species_data/', mechanism_data_path='/rcfs/projects/partikkel/multipart/mechanisms/',
         condensation = True, collisions = False, settling = False,
-        cocondensation = True, chemistry = ['sulfate', 'IEPOX'], freezing = False)
+        cocondensation = False, chemistry = None, freezing = False, write_every=60)
     
-output_directory = str(sys.argv[1])
-output_file = str(sys.argv[2])
-pickle.dump(trajectory, open('../../'+output_directory+'/'+output_file+'.pkl','wb'))
 
-# data = pickle.load(open('../../'+output_directory+'/'+output_file+'.pkl','rb'))
-# print(data)
+#pickle.dump(trajectory, open('../'+output_directory+'/'+output_file+'.pkl','wb'))
+
+
 
 '''
 

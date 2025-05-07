@@ -319,26 +319,12 @@ def create_les_scenario(les_trajectory_file,
     
     # set up the S, T, and P drivers
     LES_data = pickle.load(open(les_trajectory_file, 'rb'))
-    LES_data['hour'] = np.zeros(len(LES_data['time']))
-    LES_data['minute'] = np.zeros(len(LES_data['time']))
-    LES_data['second'] = np.zeros(len(LES_data['time']))
-    for i in range(len(LES_data['time'])):
-        LES_data['hour'][i] = float(str(LES_data['time'][i])[8:10])
-        LES_data['minute'][i] = float(str(LES_data['time'][i])[10:12])
-        LES_data['second'][i] = float(str(LES_data['time'][i])[12:])
-    LES_data['simulation time']=3600*LES_data['hour']+60*LES_data['minute']+LES_data['second']
-    LES_data['simulation time']-=np.min(LES_data['simulation time'])
-    P0 = 101325*np.exp(-0.14586*LES_data['z'][0])
-    T0 = LES_data['T'][0]
-    LES_data['z']*=1000
-    LES_data['P']=(P0*LES_data['T'])/T0    
+    LES_data['t']-=np.min(LES_data['t'])   
     
     trajectories_settings = []
     start_times = []
     end_times = []
     aerosol_population=None
-    
-    
     
     if cocondensation and gas_names:
         gas_conc=np.zeros(len(gas_names))
@@ -395,23 +381,24 @@ def create_les_scenario(les_trajectory_file,
             ids[ii] = ii
         
         aerosol_population = ParticlePopulation(particles=particles, num_concs=num_concs, ids=ids)
-        idx=np.where(LES_data['simulation time']==0)
-        S0=LES_data['SS'][idx[0][0]]+1
-        T0=LES_data['T'][idx[0][0]]
-        P0=LES_data['P'][idx[0][0]]
+        S0=LES_data['s'][0]
+        T0=LES_data['T'][0]
+        P0=LES_data['P'][0]
         aerosol_population = equilibrate_water(aerosol_population,S0,T0,P0,pHs)
         
-        ts = LES_data['simulation time']
+        ts = LES_data['t']
         one_settings = TrajectorySettings(
-            x0=None,y0=None,z0=LES_data['z'][0],u0=None,
+            x0=LES_data['x'][0],y0=LES_data['y'][0],z0=LES_data['z'][0],u0=None,
             v0=None,w0=None,
             S0=None, T0=None, P0=None,
             u_data=None,
             v_data=None,
             w_data=None,
             t_data=ts,
+            x_data=LES_data['x'],
+            y_data=LES_data['y'],
             z_data=LES_data['z'],
-            S_data=LES_data['SS']+1,
+            S_data=LES_data['s'],
             P_data=LES_data['P'],
             T_data=LES_data['T'],
             population0=aerosol_population, gas0=TraceGas_population)

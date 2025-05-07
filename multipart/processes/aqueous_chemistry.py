@@ -126,7 +126,7 @@ def H2O2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
         elif name == 'H+':
             Hplus_conc=Caq_0[ii]
 
-    k1 = 1.45E2*np.exp(-4430*((1/T)-(1/298)))
+    k1 = 1.5E2*np.exp(-4430*((1/T)-(1/298)))
     k2 = 0.013
     dCaq_dt_all[HSO3_idx]-=(k1*Hplus_conc*HSO3_conc*H2O2_conc)/(1+k2*Hplus_conc)
     dCaq_dt_all[H2O2_idx]-=(k1*Hplus_conc*HSO3_conc*H2O2_conc)/(1+k2*Hplus_conc)    
@@ -213,7 +213,7 @@ def HNO2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
         elif name == 'H+':
             Hplus_conc=Caq_0[ii]
 
-    k1 = 2.0e-7
+    k1 = 2.0e-6
     dCaq_dt_all[SO2_idx]-=1000*k1*SO2_conc*HNO2_conc
     dCaq_dt_all[HSO3_idx]-=1000*k1*HSO3_conc*HNO2_conc
     dCaq_dt_all[SO3_idx]-=1000*k1*SO3_conc*HNO2_conc

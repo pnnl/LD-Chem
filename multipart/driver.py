@@ -13,11 +13,12 @@ from scenario import create_scenario_from_DNS, create_parcel_scenario, create_hy
 from typing import Callable
 import numpy as np
 from dataclasses import replace
-import copy, tqdm, time
+import copy, time
 import matplotlib.pyplot as plt
-import sys
+import sys, pickle
 from processes import air_thermo
 from scenario import make_AqReactions
+from write_files import write_original, overwrite
 
 from systems import update_state, ParcelTrajectory, TrajectoryEnsemble, TrajectoryInteractions
 
@@ -172,7 +173,7 @@ def simulate_hysplit_trajectories(hysplit_tdump_file=None,
     return trajectory_ensemble
 
 
-def simulate_les_trajectories(les_output_file=None,
+def simulate_les_trajectories(les_output_file=None, output_path=None,
         dt=1.0,diameters=np.array([100e-9]),N_concs=np.array([1e6]),
         pHs=np.array([7.0]), accom=1., verbosity=50,
         radius_scale='lin',solver='CVODE',
@@ -180,12 +181,11 @@ def simulate_les_trajectories(les_output_file=None,
         gas_names=None, gas_data=None,
         specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
         condensation = True, collisions = False, settling = False,
-        cocondensation = False, chemistry = False, freezing = False):
+        cocondensation = False, chemistry = False, freezing = False, write_every=60.):
     
     if not les_output_file:
         print('WARNING: No LES file specified!')
         sys.exit()
-        
         
     scenario = create_les_scenario(les_output_file, 
                             diameters=diameters,N_concs=N_concs,
@@ -194,7 +194,7 @@ def simulate_les_trajectories(les_output_file=None,
                             gas_names=gas_names, gas_data=gas_data, 
                             dt=dt, specdata_path=specdata_path,
                             mechanism_data_path=mechanism_data_path,
-                            chemistry=chemistry, cocondensation=cocondensation) 
+                            chemistry=chemistry, cocondensation=cocondensation)
     
     if chemistry:
         aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
@@ -237,31 +237,29 @@ def simulate_les_trajectories(les_output_file=None,
     trajectory_ensemble = []
     traj=0
     
-    # print()
-    # for particle in scenario.trajectories_settings[0].population0.particles:
-    #     for species, mass in zip(particle.species, particle.masses):
-    #         print(species.name, mass)
-    #     print()    
-    # print()    
-    # sys.exit()
-    
     for (one_trajectory_settings, start_time, end_time
           ) in zip(scenario.trajectories_settings,scenario.start_times,scenario.end_times):
         
         runtime0 = time.time()
-        print()
-        print('Running trajectory', str(traj+1)+',', len(N_concs),'particles...')
-        ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)  
+        ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)
         t_start=one_trajectory_settings.t_data[0]
         t_end=one_trajectory_settings.t_data[-1]
         Ntimes = int((t_end - t_start)/dt + 1)
         t_eval = np.linspace(t_start, t_end, Ntimes)
-        parcel_states = [ParcelState_0]  
+        parcel_states = [ParcelState_0]
+        parcel_ts = [t_eval[0]]
+        last_written=t_start
+        restart_filename=output_path+'/trajectory_'+les_output_file[-10:-4]+'_RESTART.pkl'
+        output_filename=output_path+'/trajectory_'+les_output_file[-10:-4]+'.pkl'
+        status_filename=output_path+'/trajectory_'+les_output_file[-10:-4]+'_STATUS'
+        write_original(ParcelTrajectory(ts=parcel_ts, parcel_states=parcel_states), output_filename, specdata_path=specdata_path)
         
-        pbar = tqdm.tqdm(total = len(t_eval))
+        print()
+        print('Running trajectory', output_filename[-10:-4]+',', len(N_concs),'particles...')
+        
+        counter=0
+        #pbar = tqdm.tqdm(total = len(t_eval))
         for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
-        # for (t1,t2) in zip(t_eval[:4],t_eval[1:5]):
-            
             ParcelState_Next = update_state(t1, t2,
                 ParcelState_0, processes, dt,
                 radius_scale=radius_scale,solver=solver,
@@ -270,6 +268,8 @@ def simulate_les_trajectories(les_output_file=None,
                 aq_reactions=aq_reactions)
 
             ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
+            ParcelState_Next.x = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.x_data)
+            ParcelState_Next.y = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.y_data)
             ParcelState_Next.P = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.P_data)
             ParcelState_Next.S = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
             ParcelState_Next.T = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.T_data)
@@ -282,11 +282,25 @@ def simulate_les_trajectories(les_output_file=None,
                 ParcelState_Next.TraceGas_population.concs=new_gas_conc
             
             parcel_states.append(ParcelState_Next)
+            parcel_ts.append(t2)
             ParcelState_0=ParcelState_Next
-                        
-            pbar.update(1)
-        pbar.close()
-        print('Solving time:', round(time.time() - runtime0, 2), 'seconds')            
+            
+            if t2-last_written>=write_every:
+                f = open(status_filename, 'w')
+                f.write('in progress')
+                f.close()
+                
+                overwrite(ParcelTrajectory(ts=parcel_ts, parcel_states=parcel_states), output_filename, specdata_path=specdata_path)
+                ParcelState_dict = {'time': t2, 'parcel state': ParcelState_Next, 'dt':dt, 'accom':accom, 'verbosity':verbosity, 'radius_scale':radius_scale, 'solver':solver, 'specdata_path':specdata_path, 'mechanism_data_path':mechanism_data_path, 'processes':processes, 'write_every':write_every,'one_trajectory_settings':one_trajectory_settings, 'aq_reactions':aq_reactions, 'gas_data':gas_data}
+                pickle.dump(ParcelState_dict, open(restart_filename, 'wb'))
+                last_written=t2
+            
+            counter+=1
+            print(str(counter)+'/'+str(len(t_eval)), flush=True)
+            #pbar.update(1)
+        #pbar.close()
+        print()
+        print('Solving time:', round(time.time() - runtime0, 2), 'seconds')
         parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
         print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
         print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
@@ -296,7 +310,102 @@ def simulate_les_trajectories(les_output_file=None,
         traj+=1
         parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
         trajectory_ensemble.append(parcel_trajectory)
+        f = open(status_filename, 'w')
+        f.write('complete')
+        f.close()
+        
+    return trajectory_ensemble
     
+    
+def restart_les_trajectories(output_path=None, ParcelState_file=None, trajectory_file=None):
+    
+    data = pickle.load(open(output_path+'/'+ParcelState_file, 'rb'))
+    ParcelState_0 = data['parcel state']
+    one_trajectory_settings = data['one_trajectory_settings']
+    t_start=data['time']
+    t_end=one_trajectory_settings.t_data[-1]
+    dt=data['dt']
+    accom=data['accom']
+    verbosity=data['verbosity']
+    radius_scale=data['radius_scale']
+    solver=data['solver']
+    specdata_path=data['specdata_path']
+    mechanism_data_path=data['mechanism_data_path']
+    processes=data['processes']
+    write_every=data['write_every']
+    aq_reactions=data['aq_reactions']
+    gas_data=data['gas_data']
+    
+    trajectory_ensemble = []
+    runtime0 = time.time()
+    print()
+    print('Restarting trajectory', trajectory_file[-10:-4]+',', len(ParcelState_0.particle_population.particles),'particles...')
+    
+    Ntimes = int((t_end - t_start)/dt + 1)
+    t_eval = np.linspace(t_start, t_end, Ntimes)
+    parcel_states = [ParcelState_0]
+    parcel_ts = [t_eval[0]]
+    last_written=t_start
+    restart_filename=output_path+'/trajectory_'+trajectory_file[-10:-4]+'_RESTART.pkl'
+    output_filename=output_path+'/trajectory_'+trajectory_file[-10:-4]+'.pkl'
+    status_filename=output_path+'/trajectory_'+trajectory_file[-10:-4]+'_STATUS'
+        
+    #pbar = tqdm.tqdm(total = len(t_eval))
+    counter=0
+    for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+        ParcelState_Next = update_state(t1, t2,
+            ParcelState_0, processes, dt,
+            radius_scale=radius_scale,solver=solver,
+            accom=accom, verbosity=verbosity,
+            mechanism_data_path=mechanism_data_path,
+            aq_reactions=aq_reactions)
+
+        ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
+        ParcelState_Next.x = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.x_data)
+        ParcelState_Next.y = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.y_data)
+        ParcelState_Next.P = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.P_data)
+        ParcelState_Next.S = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
+        ParcelState_Next.T = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.T_data)
+        
+        # update the gas concentrations
+        if processes.cocondensation and ParcelState_Next.TraceGas_population:
+            new_gas_conc = []
+            for gas in ParcelState_Next.TraceGas_population.gases:
+                new_gas_conc.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
+            ParcelState_Next.TraceGas_population.concs=new_gas_conc
+        
+        parcel_states.append(ParcelState_Next)
+        parcel_ts.append(t2)
+        ParcelState_0=ParcelState_Next
+        
+        if t2-last_written>=write_every:
+            f = open(status_filename, 'w')
+            f.write('in progress')
+            f.close()
+        
+            overwrite(ParcelTrajectory(ts=parcel_ts, parcel_states=parcel_states), output_filename, specdata_path=specdata_path)
+            ParcelState_dict = {'time': t2, 'parcel state': ParcelState_Next, 'dt':dt, 'accom':accom, 'verbosity':verbosity, 'radius_scale':radius_scale, 'solver':solver, 'specdata_path':specdata_path, 'mechanism_data_path':mechanism_data_path, 'processes':processes, 'write_every':write_every,'one_trajectory_settings':one_trajectory_settings, 'aq_reactions':aq_reactions, 'gas_data':gas_data}
+            pickle.dump(ParcelState_dict, open(restart_filename, 'wb'))
+            last_written=t2
+                        
+        #pbar.update(1)
+        counter+=1
+        print(str(counter)+'/'+str(len(t_eval)), flush=True)
+    #pbar.close()
+    
+    print()
+    print('Solving time:', round(time.time() - runtime0, 2), 'seconds')
+    parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+    print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
+    print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
+    print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')
+    print()
+    
+    parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+    trajectory_ensemble.append(parcel_trajectory)
+    f = open(status_filename, 'w')
+    f.write('complete')
+    f.close()
     
     return trajectory_ensemble
 

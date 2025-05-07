@@ -9,6 +9,8 @@ import numpy as np
 # from SPLAT_initialization import read_FIMS
 import sys, tqdm
 
+R = 8.314 # m^3 Pa/mol K
+
 def this_is_a_test():
     print('10:44 am')
     pass
@@ -343,4 +345,111 @@ def plot_DNS_trajectories(trajectory_ensemble):
     
     print()
     print(np.max(SS))
+    
+    return
+    
+
+def plot_aqueous_fraction(trajectory, species, axis='height', resolution=60):
+    
+    z = []
+    t = []
+    aq_concentrations = []
+    gas_concentrations = []
+    
+    idx_aq = -1
+    for i in range(len(trajectory.parcel_states[0].particle_population.particles[0].species)):
+        name = trajectory.parcel_states[0].particle_population.particles[0].species[i].name
+        if name == species:
+            idx_aq = i
+    idx_gas = -1
+    for i in range(len(trajectory.parcel_states[0].TraceGas_population.gases)):
+        name = trajectory.parcel_states[0].TraceGas_population.gases[i].name
+        if name == species:
+            idx_gas = i
+    if idx_aq == -1:
+        print('PLOTTING WARNING: aqueous', species, 'is not tracked in this simulation!')
+        return
+    elif idx_gas == -1:
+        print('PLOTTING WARNING:', species, 'gas is not tracked in this simulation!')
+        return
+    
+    total_aq_timeseries = [] # ppb
+    total_gas_timeseries = [] # ppb
+    wL_timeseries = []
+    #Fa_eq_timeseries = []
+    dt=trajectory.ts[1]-trajectory.ts[0]
+    didx=int(resolution/dt)
+    print('Plotting aqueous fraction...')
+    pbar = tqdm.tqdm(total = len(trajectory.parcel_states[::didx]))
+    for i in range(0, len(trajectory.parcel_states), didx):
+        z.append(trajectory.parcel_states[i].w*trajectory.ts[i])
+        t.append(trajectory.ts[i])
+        
+        particle_population = trajectory.parcel_states[i].particle_population
+        aq_mole_conc = 0
+        wL = 0
+        for ii,(particle,num_conc) in enumerate(zip(particle_population.particles,particle_population.num_concs)):
+            aq_mole_conc += (particle.masses[idx_aq]/particle.species[idx_aq].molar_mass)*num_conc # mol/m^3                
+            wL += num_conc*particle.masses[particle.idx_h2o]/particle.get_rho_w() # m^3 water per m^3 air
+                
+        wL_timeseries.append(wL)
+        T = trajectory.parcel_states[i].T
+        P = trajectory.parcel_states[i].P
+        #H_eff = trajectory.parcel_states[i].TraceGas_population.gases[idx_gas].get_Heff(T) # mol/m^3*Pa
+        #Fa_eq_timeseries.append((H_eff*R*T*wL)/(1+H_eff*R*T*wL))
+        total_aq_timeseries.append(1e9*aq_mole_conc*(R*T/P)) # ppb in aeous phase
+        total_gas_timeseries.append(trajectory.parcel_states[i].TraceGas_population.concs[idx_gas])
+        pbar.update(1)
+    pbar.close()
+    
+    #Fa_eq_timeseries = np.array((Fa_eq_timeseries))
+    total_aq_timeseries = np.array((total_aq_timeseries))
+    total_gas_timeseries = np.array((total_gas_timeseries))
+    wL_timeseries = np.array((wL_timeseries))
+    
+    # if axis == 'height':
+    #     fig1, ax1 = plt.subplots(1, 1)
+    #     ax1.plot(total_aq_timeseries/(total_aq_timeseries+total_gas_timeseries), np.array((z)), '-b', label='model aqueous fraction', linewidth=2)
+    #     ax1.plot(total_gas_timeseries/(total_aq_timeseries+total_gas_timeseries), np.array((z)), '-r', label='model gas fraction', linewidth=2)
+    #     ax1.plot(1-Fa_eq_timeseries, np.array((z)), '--k', linewidth=2)
+    #     ax1.plot(Fa_eq_timeseries, np.array((z)), '--k', linewidth=2)
+    #     ax1.set_xlabel(str(species)+' mole fraction')
+    #     ax1.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.1))
+    #     ax1.set_ylabel('altitude (m)')
+    #     ymin = np.floor(np.log10(np.min(Fa_eq_timeseries)))-1
+    #     ax1.set_xscale('log')
+    #     # plt.text(t[-1]/60, 1.15*Fa_eq_timeseries[-1], 'equilibrium aqueous fraction', ha='right', va='bottom')
+    #     # plt.text(t[-1]/60, 1.15*(1-Fa_eq_timeseries[-1]), 'equilibrium gas fraction', ha='right', va='bottom')
+    #     ax1.set_xlim(10**ymin, 5)        
+        
+    #     fig2, ax2 = plt.subplots(1, 1)
+    #     ax2.plot(total_gas_timeseries, np.array((z)), '-r', label='gas', linewidth=2)
+    #     ax2.plot(total_aq_timeseries, np.array((z)), '-b', label='aqueous', linewidth=2)
+    #     ax2.plot(total_aq_timeseries+total_gas_timeseries, np.array((z)), '--k', label='total', linewidth=2)
+    #     ax2.set_xlabel(str(species)+' concentration (ppb)')
+    #     ax2.set_ylabel('Altitude (m)')
+    #     ax2.set_xscale('log')
+    #     ax2.legend(loc='center', ncol=3, bbox_to_anchor=(0.5, 1.1))
+    
+    if axis == 'time':
+        fig1, ax1 = plt.subplots(1, 1)
+        ax2 = ax1.twinx()
+        ax2.spines['left'].set_color('blue')
+        ax2.spines['right'].set_color('red')
+        ax1.tick_params(axis='y', which="both",color='blue', labelcolor='blue')
+        ax2.tick_params(axis='y', which="both",color='red', labelcolor='red')
+        
+        ax1.plot(np.array((t))/60, total_aq_timeseries/(total_aq_timeseries+total_gas_timeseries), '--b', label='aqueous fraction', linewidth=2)
+        ax1.plot(np.array((t))/60, total_gas_timeseries/(total_aq_timeseries+total_gas_timeseries), '-b', label='gas fraction', linewidth=2)
+        ax1.set_ylabel(str(species)+' fraction')
+        ax1.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.1))
+        ax1.set_xlabel('time (min)')
+        
+        ax2.plot(np.array((t))/60, wL_timeseries, '-r', linewidth=2)
+        
+        ax1.set_ylim(0,1)
+        ax2.set_ylim(0,)
+        
+    return fig1
+    
 

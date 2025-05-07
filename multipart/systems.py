@@ -27,7 +27,7 @@ from processes import fluctuations
 import constants as c
 
 from assimulo.problem import Explicit_Problem
-from assimulo.solvers import CVode
+#from assimulo.solvers import CVode
 from scipy.integrate import ode
 from scipy.optimize import fminbound
 
