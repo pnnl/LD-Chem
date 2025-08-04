@@ -17,13 +17,13 @@ from typing import Tuple
 from typing import Callable
 from numba.typed import Dict
 from numba import types
-
+import scipy.optimize as opt
 from particles import ParticlePopulation
 from TraceGases import TraceGasPopulation, GasSpecies
 from processes import water_uptake, cocondensation, aqueous_chemistry
 from processes import air_thermo
 from processes import fluctuations
-# from processes.water_uptake import dlnr_dt
+from processes.air_thermo import compute_thermo_props, S_to_wv, wv_to_S
 import constants as c
 
 from assimulo.problem import Explicit_Problem
@@ -92,6 +92,7 @@ class Processes:
     freezing: bool = False
     settling: bool = False
     fluctuations: bool = False
+    entrainment: bool = False
     
     
 @dataclass
@@ -202,11 +203,12 @@ def update_state(t1, t2,
         radius_scale=radius_scale,solver=solver,
         accom=accom, verbosity=verbosity,mechanism_data_path=mechanism_data_path,
         aq_reactions=aq_reactions, rtol=rtol, atol=atol)
-    
+
     ParcelState_2 = update_air(t2,
         ParcelState_1, processes, feedbacks_1, dt, 
-        verbosity=verbosity, solver=solver) 
-    ParcelState_next = replace(ParcelState_2)    
+        verbosity=verbosity, solver=solver)
+    
+    ParcelState_next = replace(ParcelState_2)
     return ParcelState_next
 
 # put all the functions for particle state in another file?
@@ -544,13 +546,13 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt, verbosity=50,C0=3.,a
     z0 = ParcelState_0.z
     wv0 = air_thermo.S_to_wv(S0,T0,P0)
     t0 = 0.0
-        
-    state0 = np.array([z0,T0,P0,S0,wv0])
-    if ParcelState_0.w:
-        updraft_velocity = ParcelState_0.w  
-    else:
-        updraft_velocity = None    
     
+    dz_dt=0
+    dT_dt=0
+    dP_dt=0
+    dS_dt=0
+    dwv_dt=0
+
     if processes.fluctuations:
         if len(ParcelState_0.population.particles)==1:
             r = ParcelState_0.population.particles[0].get_Dwet()/2.
@@ -560,37 +562,41 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt, verbosity=50,C0=3.,a
     else:
         ds_turb = 0.
 
-    
     ParcelState_next = deepcopy(ParcelState_0) # maybe??
     
-    if updraft_velocity:
-
-        if solver == 'CVODE':
-            rhs = lambda t, state: air_thermo.dstate_dt(
-                state, updraft_velocity, feedbacks.dwc_dt, feedbacks.dwi_dt)
-            prob = Explicit_Problem(rhs, state0)
-            sim = CVode(prob)
-            sim.atol=1.0e-15
-            sim.rtol=1.0e-15
-            sim.verbosity=verbosity
-            state_next=sim.simulate(dt)
-            ParcelState_next.z = state_next[1][-1][0]
-            ParcelState_next.T = state_next[1][-1][1]
-            ParcelState_next.P = state_next[1][-1][2]
-            ParcelState_next.S = state_next[1][-1][3] #+ ds_turb
-            ParcelState_next.wv = state_next[1][-1][4]
-            
-        elif solver == 'ode15s':
-            ode15s = ode(air_thermo.dstate_dt_wrapper).set_integrator('lsoda', method='bdf', 
-                                                  rtol=1E-6, atol=1E-12, nsteps=5000)
-            ode15s.set_initial_value(state0, t0).set_f_params(updraft_velocity, feedbacks.dwc_dt, feedbacks.dwi_dt)
-            state_next = ode15s.integrate(ode15s.t+dt)
-            ParcelState_next.z = state_next[0]
-            ParcelState_next.T = state_next[1]
-            ParcelState_next.P = state_next[2]
-            ParcelState_next.S = state_next[3] + ds_turb
-            ParcelState_next.wv = state_next[4]  
-
+    if processes.condensation:
+        state0 = np.array([z0,T0,P0,S0,wv0])
+        if ParcelState_0.w:
+            if solver == 'CVODE':
+                rhs = lambda t, state: air_thermo.dstate_dt(
+                    state, updraft_velocity, feedbacks.dwc_dt, feedbacks.dwi_dt)
+                prob = Explicit_Problem(rhs, state0)
+                sim = CVode(prob)
+                sim.atol=1.0e-15
+                sim.rtol=1.0e-15
+                sim.verbosity=verbosity
+                state_next=sim.simulate(dt)
+                dz_dt = state_next[1][-1][0]-z0
+                dT_dt = state_next[1][-1][1]-T0
+                dP_dt = state_next[1][-1][2]-P0
+                dS_dt = state_next[1][-1][3]-S0+ds_turb
+                dwv_dt = state_next[1][-1][4]-wv0
+                
+            elif solver == 'ode15s':
+                ode15s = ode(air_thermo.dstate_dt_wrapper).set_integrator('lsoda', method='bdf',
+                                                      rtol=1E-6, atol=1E-12, nsteps=5000)
+                ode15s.set_initial_value(state0, t0).set_f_params(updraft_velocity, feedbacks.dwc_dt, feedbacks.dwi_dt)
+                state_next = ode15s.integrate(ode15s.t+dt)
+                dz_dt = state_next[0]-z0
+                dT_dt = state_next[1]-T0
+                dP_dt = state_next[2]-P0
+                dS_dt = state_next[3]-S0+ds_turb
+                dwv_dt = state_next[4]-wv0
+    
+        else:
+            pv_sat, rho_air, rho_air_dry = compute_thermo_props(T0, P0, S0)
+            gamma=(P0*c.Ma)/(pv_sat*c.Mw)+(c.Mw*c.L**2)/(c.Cp*c.R*T0**2)
+            dS_dt=-1.0*gamma*feedbacks.dwc_dt
     
     if processes.cocondensation:
         if ParcelState_next.TraceGas_population:
@@ -598,32 +604,110 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt, verbosity=50,C0=3.,a
                 gas = feedbacks.gases.names[ii]
                 dppb_dt = feedbacks.gases.dc_dts[ii]
                 TraceGas_idx = ParcelState_next.TraceGas_population.get_species_idx(gas)
-                ParcelState_next.TraceGas_population.concs[TraceGas_idx] += dppb_dt     
-    
-    # except:
-    #     output = solve_ivp(rhs, [0.,dt], state0)
-    #     ParcelState_next.T = output.y[0]
-    #     ParcelState_next.P = output.y[1]
-    #     ParcelState_next.S = output.y[2] #+ ds_turb
-    #     ParcelState_next.wv = output.y[3]        
-    # #     output = solve_ivp(rhs, [0.,dt], state0)
-    #     # lnr_next=output.y[-1]
-    #     # output = solve_ivp(rhs, [0.,dt], np.array([r0]))
-    #     # r_next=output.y[-1]
-    #     print()
-    #     print()
-    #     print("============ IN HERE =====================")
-    #     print(state0)
-    #     print()
-    #     sys.exit()
-    
+                ParcelState_next.TraceGas_population.concs[TraceGas_idx] += dppb_dt
+
+    ParcelState_next.z = z0+dz_dt
+    ParcelState_next.T = T0+dT_dt
+    ParcelState_next.P = P0+dP_dt
+    ParcelState_next.S = S0+dS_dt
+    ParcelState_next.wv = wv0+dwv_dt
     
     return ParcelState_next
     # put this in a condensation function?
     # if processes.water_uptake: # changes this to "condense"?
+
+
+def air_from_les(ParcelState_0, processes, t2, one_trajectory_settings, relaxation_time, dt, solver, gas_data, atol, rtol):
+    
+    ParcelState_Next=deepcopy(ParcelState_0)
+    t0=0.0
+    
+    if processes.entrainment:
+        if not relaxation_time:
+            raise ValueError("Must enter an entrainment rate if entrainment = True!")
+        
+        # update the saturation ratio
+        ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
+        ParcelState_Next.x = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.x_data)
+        ParcelState_Next.y = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.y_data)
+        ParcelState_Next.P = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.P_data)
+        ParcelState_Next.S = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
+        
+        #S_env = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
+        #rhs = lambda t, S_parcel: (1/relaxation_time)*(S_env-S_parcel)
+        #if solver == 'CVODE':
+        #    prob = Explicit_Problem(rhs, Caq_0)
+        #    sim = CVode(prob)
+        #    sim.atol=atol
+        #    sim.rtol=rtol
+        #    sim.verbosity=verbosity
+        #    output=sim.simulate(dt)
+        #    Caq_next=output[1][-1] # mol/m^3
+        #elif solver == 'ode15s':
+        #    ode15s = ode(rhs).set_integrator('lsoda', method='bdf',
+        #                                     rtol=rtol, atol=atol, nsteps=5000)
+        #    ode15s.set_initial_value(ParcelState_0.S, t0)
+        #    S_next = ode15s.integrate(ode15s.t+dt)
+        #    ParcelState_Next.S=S_next[-1]
+            
+        # update the gas concentrations
+        if ParcelState_0.TraceGas_population:
+            X0 = []
+            X_env = []
+            for gas, concentration in zip(ParcelState_0.TraceGas_population.gases, ParcelState_0.TraceGas_population.concs):
+                X0.append(concentration)
+                if ParcelState_Next.z < np.min(gas_data[gas.name]['alt']):
+                    f = lambda x, a, b: a*x**b
+                    params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][:2], gas_data[gas.name]['ppb'][:2], p0=[1, 0.1])
+                    X_env.append(f(ParcelState_Next.z, params[0], params[1]))
+                #elif ParcelState_Next.z > np.max(gas_data[gas.name]['alt']):
+                    #f = lambda x, a, b: a*x**b
+                    #params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][-2:], gas_data[gas.name]['ppb'][-2:], p0=[1, 0.1])
+                    #new_gas_conc.append(f(ParcelState_Next.z, params[0], params[1]))
+                else:
+                    X_env.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
+            
+            rhs = lambda t, X_parcel: (1/relaxation_time)*(X_env-X_parcel)
+            if solver == 'CVODE':
+                prob = Explicit_Problem(rhs, Caq_0)
+                sim = CVode(prob)
+                sim.atol=atol
+                sim.rtol=rtol
+                sim.verbosity=verbosity
+                output=sim.simulate(dt)
+                Caq_next=output[1][-1] # mol/m^3
+            elif solver == 'ode15s':
+                ode15s = ode(rhs).set_integrator('lsoda', method='bdf',
+                                                 rtol=rtol, atol=atol, nsteps=5000)
+                ode15s.set_initial_value(X0, t0)
+                X_next = ode15s.integrate(ode15s.t+dt)
+                ParcelState_Next.TraceGas_population.concs=X_next
         
 
-
+    else:
+        ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
+        ParcelState_Next.x = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.x_data)
+        ParcelState_Next.y = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.y_data)
+        ParcelState_Next.P = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.P_data)
+        ParcelState_Next.S = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.S_data)
+        ParcelState_Next.T = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.T_data)
+                    
+        # update the gas concentrations
+        if cocondensation and ParcelState_Next.TraceGas_population:
+            new_gas_conc = []
+            for gas in ParcelState_Next.TraceGas_population.gases:
+                if ParcelState_Next.z < np.min(gas_data[gas.name]['alt']):
+                    f = lambda x, a, b: a*x**b
+                    params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][:2], gas_data[gas.name]['ppb'][:2], p0=[1, 0.1])
+                    new_gas_conc.append(f(ParcelState_Next.z, params[0], params[1]))
+                #elif ParcelState_Next.z > np.max(gas_data[gas.name]['alt']):
+                    #f = lambda x, a, b: a*x**b
+                    #params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][-2:], gas_data[gas.name]['ppb'][-2:], p0=[1, 0.1])
+                    #new_gas_conc.append(f(ParcelState_Next.z, params[0], params[1]))
+                else:
+                    new_gas_conc.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
+            ParcelState_Next.TraceGas_population.concs=new_gas_conc
+    return ParcelState_Next
 
 
 # =================== backup of single particle changes just in case

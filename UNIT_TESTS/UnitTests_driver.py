@@ -453,7 +453,19 @@ def simulate_IEPOX_chemistry(mu_star, N_scenarios=1,
         chemistry = chemistry, 
         freezing = freezing)    
     
-    print()
+    if chemistry:
+        if 'sulfate' in chemistry:
+            particle_population=scenario.trajectories_settings[0].population0.particles
+            for ii, (particle) in enumerate(particle_population):
+                water_volume=particle.get_vol_tot()-particle.get_vol_dry()
+                SO4_conc=(particle.masses[particle.get_species_idx('SO4')]/particle.species[particle.get_species_idx('SO4')].molar_mass)/water_volume
+                Hplus_conc=(particle.masses[particle.get_species_idx('H+')]/particle.species[particle.get_species_idx('H+')].molar_mass)/water_volume
+                HSO4_conc=(SO4_conc*Hplus_conc)/0.01
+                H2SO4_conc=(HSO4_conc*Hplus_conc)/1000.0
+                particle.masses[particle.get_species_idx('HSO4')]=HSO4_conc*particle.species[particle.get_species_idx('HSO4')].molar_mass*water_volume
+                particle.masses[particle.get_species_idx('H2SO4')]=H2SO4_conc*particle.species[particle.get_species_idx('H2SO4')].molar_mass*water_volume
+    
+    print()    
     for (one_trajectory_settings, start_time, end_time
           ) in zip(scenario.trajectories_settings,scenario.start_times,scenario.end_times):        
         

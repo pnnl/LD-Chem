@@ -52,13 +52,13 @@ def dCaq_dt(Caq_0, reactants_all, products_all, rates, aq_names, T):
                     if name == reactant:
                         idx = jj
                 dCaq_dt_all[idx]-=dCaq # mol/m^3/s
+
             for product in products:
                 for jj, (name) in enumerate(aq_names):
                     if name == product:
                         idx = jj
                 dCaq_dt_all[idx]+=dCaq # mol/m^3/s
-                
-    # print()
+
     return dCaq_dt_all # mol/m^3/s
 
 
@@ -288,7 +288,7 @@ def O2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
 
 @nb.njit()
 def IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
-
+    
     HSO4_conc = 0
     NH4_conc = 0
     SO4_conc = 0
@@ -367,9 +367,6 @@ def IEPOX_OH_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
     # by moles
     
     rate = 2.4E8*np.exp(-1520/T) # m^3/mol/s
-    
-    # rate = 5.4E-6
-    
     
     dCaq_SOA=rate*IEPOX_conc*OHrad_conc # total for all SOA products    
     dCaq_dt_all[IEPOX_idx] -= dCaq_SOA # mol/m^3*s

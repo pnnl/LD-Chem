@@ -359,7 +359,7 @@ def Particle_MassFracs(particle_masses, particle_species, specdata_path='../spec
     dry_species = []
     dry_idx = []
     for species in particle_species:
-        try: 
+        try:
             SpeciesData = particles.retrieve_one_species(species, specdata_path=specdata_path)
             if SpeciesData.density > 0.0 and species != 'H2O':
                 dry_species.append(species)
@@ -369,26 +369,28 @@ def Particle_MassFracs(particle_masses, particle_species, specdata_path='../spec
     dry_species = np.array(dry_species)
     particle_dry_masses = particle_masses[:,:,dry_idx] # this pulls out only the aerosol species
     particle_dry_MassFracs = np.zeros(particle_dry_masses.shape)
-    total_dry_masses=np.sum(particle_dry_masses, axis=2)    
+    total_dry_masses=np.sum(particle_dry_masses, axis=2)
     total_dry_masses = np.repeat(total_dry_masses[:,:,np.newaxis], len(dry_species), axis=2)
     for ii in range((len(particle_dry_masses[0]))):
-        particle_dry_MassFracs[:,ii,:]=particle_dry_masses[:,ii,:]/total_dry_masses[:,ii,:]    
+        particle_dry_MassFracs[:,ii,:]=particle_dry_masses[:,ii,:]/total_dry_masses[:,ii,:]
+    
     return particle_dry_MassFracs, dry_species
 
 def Particle_Concentrations(particle_masses, particle_species, specdata_path='../species_data'):
     
     SpeciesData = particles.retrieve_one_species('H2O', specdata_path=specdata_path)
     H2O_idx = np.where(particle_species=='H2O')[0][0]
-    water_volumes = particle_masses[:,:,H2O_idx]/SpeciesData.density    
+    water_volumes = particle_masses[:,H2O_idx]/SpeciesData.density
     concentrations=np.zeros(particle_masses.shape)
     concentrations[:]=np.nan
     for ii, (species) in enumerate(particle_species):
-        try: 
+        try:
             SpeciesData = particles.retrieve_one_species(species, specdata_path=specdata_path)
-            moles_x = particle_masses[:,:,ii]/SpeciesData.molar_mass
-            concentrations[:,:,ii]=moles_x/water_volumes
+            moles_x = particle_masses[:,ii]/SpeciesData.molar_mass
+            concentrations[:,ii]=moles_x/water_volumes
         except Exception:
             pass
+        
     return concentrations # mol/m^3
 
 
@@ -709,7 +711,7 @@ def VerticalComposition(trajectory, mass_thresholds, splat_species, splat_file,
 
     
 
-def classify(particle_masses, particle_species, mass_thresholds,
+def classify(particle_masses, particle_species, splat_species, mass_thresholds,
              specdata_path='../species_data',
              reassignment=False):
     
@@ -799,35 +801,21 @@ def classify(particle_masses, particle_species, mass_thresholds,
 def all_real(mass_fractions):
   return all(x >= 0 for x in abs(mass_fractions))
 
-
 def get_CD_status(wet_diameters, dry_diameters, kappas, Ns, T):
+    
     CD_status=np.zeros(len(wet_diameters))
     for ii, (Ddry, Dwet, kappa, N) in enumerate(zip(dry_diameters, wet_diameters, kappas, Ns)):
         r=Dwet/2.
         r_dry=Ddry/2.
-        neg_Seq = lambda r: -1.0 * water_uptake.Seq(r, r_dry, T, kappa)        
+        neg_Seq = lambda r: -1.0 * water_uptake.Seq(r, r_dry, T, kappa)
         out = fminbound(neg_Seq, r_dry, r_dry * 1e4, xtol=1e-10, full_output=True, disp=0)
         r_crit, s_crit = out[:2]
-        s_crit *= -1.0  # multiply by -1 to undo negative flag for Seq        
+        s_crit *= -1.0  # multiply by -1 to undo negative flag for Seq
         if r >= r_crit:
             CD_status[ii]=N 
         else:
             CD_status[ii]=-1.0*N 
-    
     return CD_status # negative values are -1*number concentration for interstitials, positive values are number concentration of cloud droplet residuals
-
-    
-def get_Dcrit(wet_diameters, dry_diameters, kappas, Ns, T):
-    
-    Dcrits=np.zeros(len(wet_diameters))
-    for ii, (Ddry, Dwet, kappa, N) in enumerate(zip(dry_diameters, wet_diameters, kappas, Ns)):
-        r_dry=Ddry/2.
-        neg_Seq = lambda r: -1.0 * water_uptake.Seq(r, r_dry, T, kappa)
-        out = fminbound(neg_Seq, r_dry, r_dry * 1e4, xtol=1e-10, full_output=True, disp=0)
-        r_crit, s_crit = out[:2]
-        Dcrits[ii]=2.0*r_crit
-        
-    return Dcrits
     
     
 def miniSPLAT_CloudComposition(splat_file, size_distribution_file, splat_species):
@@ -903,59 +891,6 @@ def miniSPLAT_CloudComposition(splat_file, size_distribution_file, splat_species
         interstitials[species]=np.array(interstitials[species])
     
     return CDRs, interstitials
-
-
-def IEPOX_formation_rate(Caq_0, dCaq_dt_all, aq_names, T):
-
-    HSO4_conc = np.zeros(Caq_0.shape)
-    NH4_conc = np.zeros(Caq_0.shape)
-    SO4_conc = np.zeros(Caq_0.shape)
-    for ii, (name) in enumerate(aq_names):
-        if name == 'H2O':
-            H2O_conc=0.001*Caq_0[:,:,ii]            
-            H2O_idx = ii
-        elif name == 'H+':
-            Hplus_conc=0.001*Caq_0[:,:,ii]
-        elif name == 'HSO4':
-            HSO4_conc=0.001*Caq_0[:,:,ii]
-            HSO4_idx = ii
-        elif name == 'SO4':
-            SO4_conc=0.001*Caq_0[:,:,ii]
-            SO4_idx = ii
-        elif name == 'NH4':
-            NH4_conc=0.001*Caq_0[:,:,ii]
-            NH4_idx = ii
-        elif name == 'IEPOX':
-            IEPOX_conc=Caq_0[:,:,ii]
-            IEPOX_idx = ii
-        elif name == 'IEPOX_OS':
-            IEPOX_OS_idx = ii
-        elif name == 'tetrol':
-            tetrol_conc = Caq_0[:,:,ii]
-            tetrol_idx = ii
-        elif name == 'tetrol_olig':
-            tetrol_olig_idx = ii
-            
-    
-    kaqs = [1.8e-4, 2.62e-6, 6.2e-8, 1.91e-4]
-    kaq = kaqs[0]*Hplus_conc*H2O_conc + kaqs[1]*HSO4_conc*H2O_conc + kaqs[2]*NH4_conc*H2O_conc + kaqs[3]*Hplus_conc*SO4_conc # 1/s    
-    
-    tau_olig=24 # AS: 12, ABS: 1.5
-    BETA=0.35 # AS: 0.35, ABS: 0.6
-    
-    dCaq_dt_all[:,:,IEPOX_idx] -= kaq*IEPOX_conc # mol/m^3*s    
-    dCaq_dt_all[:,:,IEPOX_OS_idx] += BETA*kaq*IEPOX_conc # mol/m^3*s
-    dCaq_dt_all[:,:,tetrol_idx] += (1-BETA)*kaq*IEPOX_conc # mol/m^3*s
-    dCaq_dt_all[:,:,tetrol_olig_idx] += (1/(tau_olig*3600))*tetrol_conc # mol/m^3*s
-    dCaq_dt_all[:,:,tetrol_idx] -= (1/(tau_olig*3600))*tetrol_conc # mol/m^3*s
-    
-    dCaq_dt_all[:,:,H2O_idx] -= (kaqs[0]*Hplus_conc*H2O_conc+kaqs[1]*HSO4_conc*H2O_conc+kaqs[2]*NH4_conc*H2O_conc)*IEPOX_conc
-    dCaq_dt_all[:,:,HSO4_idx] -= kaqs[1]*HSO4_conc*H2O_conc*IEPOX_conc    
-    dCaq_dt_all[:,:,HSO4_idx] -= kaqs[1]*HSO4_conc*H2O_conc*IEPOX_conc
-    dCaq_dt_all[:,:,NH4_idx] -= kaqs[2]*NH4_conc*H2O_conc*IEPOX_conc
-    dCaq_dt_all[:,:,SO4_idx] -= kaqs[3]*Hplus_conc*SO4_conc*IEPOX_conc
-    
-    return dCaq_dt_all
  
 
     

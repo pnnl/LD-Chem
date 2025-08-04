@@ -16,8 +16,8 @@ import pickle, sys, os
 # gas_data=pickle.load(open('gas_data', 'rb'))
 # les_number=pickle.load(open('trajectory_number', 'rb'))
 
-run_number=0
-trajectory_path='/Users/beel083/Downloads/PiChamber_NaCl_100cc_9K_50nm_2p5rate_trajectories/'
+run_number=int(sys.argv[3])
+trajectory_path=sys.argv[1]
 
 # aerosol inputs
 diameters=np.array([50.0e-9])
@@ -28,18 +28,18 @@ pHs=[0.9]
 
 # gas inputs
 gas_names = ['IEPOX']
-gas_concentrations = [10.0] # ppb
+gas_concentrations = [1.0] # ppb
 
-print('Reading', trajectory_path+str(run_number).zfill(6)+'.txt')
+print('Reading', trajectory_path+'/'+str(run_number).zfill(6)+'.txt')
 
-trajectory = simulate_PiChamber_trajectories(output_path=str(os.getcwd()),
+trajectory = simulate_PiChamber_trajectories(output_path=sys.argv[2],
         dt=0.1,diameters=diameters,N_concs=num_concs,
         pHs=pHs, accom=1., verbosity=50,
         radius_scale='log',solver='ode15s',
         species_names=aero_spec_names, mass_fractions=aero_spec_fracs,
         gas_names=gas_names, gas_concentrations=gas_concentrations,
-        specdata_path='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/species_data/', 
-        mechanism_data_path='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/mechanisms/',
+        specdata_path='/rcfs/projects/partikkel/multipart/species_data/',
+        mechanism_data_path='/rcfs/projects/partikkel/multipart/mechanisms/',
         trajectory_path=trajectory_path, run_number=run_number,
         condensation = True, collisions = False, settling = False,
         cocondensation = True, chemistry = ['IEPOX'], freezing = False, write_every=1.0)

@@ -178,24 +178,24 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
             modeled_Nfraction=np.sum(particle_num_concs[spec_idx[0]])/np.sum(particle_num_concs[all_idx[0]])
         
         # match the measured number concentration
-        mult=np.sum(measured_N)/(np.sum(particle_num_concs)/100**3)
-        particle_num_concs*=mult
+        #mult=np.sum(measured_N)/(np.sum(particle_num_concs)/100**3)
+        #particle_num_concs*=mult
         
         # plot ==================================================
-        bottom=np.zeros(len(Dp_uppers)-1)
-        plt.errorbar(Dp_mids, measured_N, fmt='o', yerr=N_error, mfc='w', mec='k', ecolor='k')
-        plt.plot(Dp_mids, total_SizeDist, '-r', zorder=100)
-        for t, c in zip(avg_number_fraction.keys(), ['grey','gold','r','b','g','C6']):
-          idx=np.where(np.array([ptypes])==t)
-          hist=np.histogram(1e9*particle_diameters[idx[1]], bins=Dp_uppers, weights=particle_num_concs[idx[1]]/100**3)
-          widths=hist[1][1:]-hist[1][:-1]
-          plt.bar(Dp_uppers[:-1], hist[0], width=widths, align='edge', bottom=bottom, facecolor=c, edgecolor='k', label=t)
-          bottom+=hist[0]
-        plt.xscale('log')
-        plt.legend()
-        plt.ylim(0,)
-        plt.savefig('SAMPLED_PARTICLES.png', bbox_inches='tight')
-        plt.close()
+        #bottom=np.zeros(len(Dp_uppers)-1)
+        #plt.errorbar(Dp_mids, measured_N, fmt='o', yerr=N_error, mfc='w', mec='k', ecolor='k')
+        #plt.plot(Dp_mids, total_SizeDist, '-r', zorder=100)
+        #for t, c in zip(avg_number_fraction.keys(), ['grey','gold','r','b','g','C6']):
+        #  idx=np.where(np.array([ptypes])==t)
+        #  hist=np.histogram(1e9*particle_diameters[idx[1]], bins=Dp_uppers, weights=particle_num_concs[idx[1]]/100**3)
+        #  widths=hist[1][1:]-hist[1][:-1]
+        #  plt.bar(Dp_uppers[:-1], hist[0], width=widths, align='edge', bottom=bottom, facecolor=c, edgecolor='k', label=t)
+        #  bottom+=hist[0]
+        #plt.xscale('log')
+        #plt.legend()
+        #plt.ylim(0,)
+        #plt.savefig('SAMPLED_PARTICLES.png', bbox_inches='tight')
+        #plt.close()
         # plot ==================================================
         
         
@@ -252,8 +252,8 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
                         other_species.append(t)
                     except:
                         for s in mass_thresholds[t][1]:
-                            # if s not in ['IEPOX_OS', 'tetrol', 'tetrol_olig']:
-                            other_species.append(s)            
+                            if s not in mass_fractions['IEPOX'][1]:
+                                other_species.append(s)
                 
             while np.sum(remaining_mass)<1-total_incl_mass:
                 spec_name=other_species[int(len(other_species)*np.random.rand())]
@@ -331,8 +331,32 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
         
         # ====================================================================
     #pbar.close()
+     
+    # change the number concentrations so that the total
+    # mass concentration matches the AMS measurements
+    particle_num_concs*=measured_total_mass/(1e9*total_mass)
     
-    
+    # plot ==================================================
+    bottom=np.zeros(len(Dp_uppers)-1)
+    plt.errorbar(Dp_mids, measured_N/np.max(measured_N), fmt='o', yerr=N_error/np.max(measured_N), mfc='w', mec='k', ecolor='k')
+    plt.plot(Dp_mids, total_SizeDist/np.max(total_SizeDist), '-r', zorder=100)
+    hist=np.histogram(1e9*particle_diameters, bins=Dp_uppers, weights=particle_num_concs/100**3)
+    hist_max=np.max(hist[0])
+    for t, c in zip(avg_number_fraction.keys(), ['grey','gold','r','b','g','C6']):
+        idx=np.where(np.array([ptypes])==t)
+        hist=np.histogram(1e9*particle_diameters[idx[1]], bins=Dp_uppers, weights=particle_num_concs[idx[1]]/100**3)
+        widths=hist[1][1:]-hist[1][:-1]
+        plt.bar(Dp_uppers[:-1], hist[0]/hist_max, width=widths, align='edge', bottom=bottom, facecolor=c, edgecolor='k', label=t)
+        bottom+=hist[0]/hist_max
+    plt.xscale('log')
+    plt.ylabel(r'Normalized Number Concentration (cm$^{-3}$)', labelpad=10)
+    plt.xlabel('Dry Diameter (nm)', labelpad=10)
+    plt.legend()
+    plt.ylim(0,)
+    plt.savefig('SAMPLED_PARTICLES.png', bbox_inches='tight')
+    plt.close()
+    # =======================================================
+
     if counter == maxcounter:
         print('Measurements not matched after', maxcounter, 'iterations...returning sampled values.')
     elif override_matching==True:
@@ -352,22 +376,38 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
             print(species, measured, sampled, True, len(spec_idx[0]))
         else:
             print(species, measured, sampled, False, len(spec_idx[0]))
+    
+    # get the updated mass concentrations
+    masses={}
+    for species in ams_mass_fractions.keys():
+        masses[species]=0
+    for ii in range(len(particle_diameters)):
+        aero_names_temp, aero_fracs_temp = get_aero_spec_fracs(
+            molecule_names=aero_spec_names[ii], molecule_mass_fracs=aero_spec_fracs[ii],
+            specdata_path=specdata_path)
+        OneParticle=make_particle(particle_diameters[ii], aero_names_temp,
+                                  aero_fracs_temp, specdata_path=specdata_path,
+                                  surface_tension=0.072, reactions=None, gases=None)
+        for species in ams_mass_fractions.keys():
+            if type(OneParticle.get_species_idx(species))==int:
+                masses[species]+=particle_num_concs[ii]*OneParticle.masses[OneParticle.get_species_idx(species)]
+    
     print()
-    print('Measured, modeled mass fractions:')
+    print('Measured, modeled mass concentrations:')
     for group in masses.keys():
-        sampled=sampled_mass_fractions[group]
-        measured=ams_mass_fractions[group]
-        measured_error=ams_mass_fraction_error[group]
+        sampled=1e9*masses[group]
+        measured=ams_mass_fractions[group]*measured_total_mass
+        measured_error=ams_mass_fraction_error[group]*measured_total_mass
         if sampled >= measured-measured_error and sampled <= measured+measured_error:
             print(group, measured, sampled, True)
         else:
-            print(group, measured, sampled, False)    
+            print(group, measured, sampled, False)
     
     if gas_names:
         gas_vertical_profiles = measured_gas_phase(trace_gas_folder, gas_names)
     else:
         gas_vertical_profiles=None
-
+    
     return particle_diameters, particle_num_concs, aero_spec_names, aero_spec_fracs, aero_pHs, gas_vertical_profiles
     
 def scale_height(z, ppb0, H):
@@ -511,7 +551,9 @@ def optimize_splat_size_distribution(datapoints=10000,size_distribution_file=Non
             mult_to_save=mult
         
         counter+=1
-        print(str(counter)+'/'+str(len(mode_fractions)), flush=True)
+        #print(str(counter)+'/'+str(len(mode_fractions)), flush=True)
+        sys.stdout.write(str(counter)+'/'+str(len(mode_fractions))+'\n')
+        sys.stdout.flush()
 
     output={}
     for ii in range(len(model_species)):
@@ -1047,13 +1089,14 @@ def measured_gas_phase(trace_gas_folder, gas_names):
                     sys.exit()
                     
     #print(gas_data_all)
-    #for gas, marker in zip(gas_names, ['ro', 'g^', 'bv', 'k>', 'ws']):
-    #    plt.plot(gas_data_all[gas]['ppb'], gas_data_all[gas]['alt']/1000, marker, mec='k', label=gas)
+    #for gas in gas_names:
+        #plt.plot(gas_data_all[gas]['ppb'], gas_data_all[gas]['alt']/1000, label=gas)
     #plt.xscale('log')
     #plt.legend()
     #plt.ylim(0, 2.5)
     #plt.xlim(1e-3, 1e2)
     #plt.savefig('GAS_PHASE.png')
+    #print('gere')
     #sys.exit()
     
     return gas_data_all
@@ -1097,20 +1140,20 @@ try:
                     'BC': [[0.5,0.7,0.1], ['BC']],
                     'OIN': [[0.5,0.7,0.1], ['OIN']]}
 
-    gas_names = ['SO2', 'O3', 'H2O2', 'NO2', 'IEPOX']
+    gas_names = ['SO2', 'O3', 'H2O2', 'IEPOX', 'OH', 'HNO3', 'NO2', 'NO']
 
     diameters, num_concs, aero_spec_names, aero_spec_fracs, pHs, gas_data=splat_setup(Npart=total_Np,
                            optimization_points=1000, mass_thresholds=mass_fractions,
-                           size_distribution_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/BEASD_G1_20160425155810_R2_HISCALE_001s.txt',
-                           splat_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/Splat_Composition_25-Apr-2016.txt',
-                           aimms_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/AIMMS20_G1_20160425155810_R2_HISCALE020h.txt',
-                           trace_gas_folder='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/CIMS_data',
+                           size_distribution_file='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/BEASD_G1_20160425155810_R2_HISCALE_001s.txt',
+                           splat_file='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/Splat_Composition_25-Apr-2016.txt',
+                           aimms_file='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/AIMMS20_G1_20160425155810_R2_HISCALE020h.txt',
+                           trace_gas_folder='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/CIMS_data',
                            dz=100.0, splat_species=splat_species,
                            mass_fractions=mass_fractions,
                            gas_names=gas_names, les_path=les_path, les_number=les_number,
-                           ams_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/HiScaleAMS_G1_20160425_R0.txt',
-                           override_matching=False,
-                           specdata_path='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/species_data/')
+                           ams_file='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/HiScaleAMS_G1_20160425_R0.txt',
+                           override_matching=True,
+                           specdata_path='/rcfs/projects/partikkel/multipart/species_data/')
 
     # write pickle files that save the initial aerosol properties
     f = open(output_path+'/diameters', 'wb')

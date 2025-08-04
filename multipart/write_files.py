@@ -4,11 +4,11 @@
 @author: Laura Fierce and Payton Beeler
 """
 import numpy as np
-import sys, pickle
+import pickle
 
-def write_original(trajectory, filename, specdata_path='../species_data'):
+def write_original(time, state, filename, specdata_path='../species_data'):
     
-    data_dict = last_state_array(trajectory, specdata_path=specdata_path)
+    data_dict = last_state_array(time, state, specdata_path=specdata_path)
     if isinstance(data_dict['gases'], np.ndarray):
         data_dict['gases']=np.expand_dims(data_dict['gases'], axis=0)
     data_dict['particles']=np.expand_dims(data_dict['particles'], axis=0)
@@ -16,10 +16,10 @@ def write_original(trajectory, filename, specdata_path='../species_data'):
     return
     
     
-def overwrite(trajectory, filename, specdata_path='../species_data'):
+def overwrite(time, trajectory, filename, specdata_path='../species_data'):
 
     original_trajectory=pickle.load(open(filename, 'rb'))
-    new_state=last_state_array(trajectory, specdata_path=specdata_path)
+    new_state=last_state_array(time, trajectory, specdata_path=specdata_path)
     
 #    print()
 #    print(new_state['times'])
@@ -56,7 +56,7 @@ def overwrite(trajectory, filename, specdata_path='../species_data'):
     return
 
 
-def last_state_array(trajectory, specdata_path='../species_data'):
+def last_state_array(time, state, specdata_path='../species_data'):
     
     aq_order=np.zeros(0)
     aero_datafile = specdata_path+'/aero_data.dat'
@@ -66,28 +66,28 @@ def last_state_array(trajectory, specdata_path='../species_data'):
                 name_in_file,density,ions_in_solution,molar_mass,kappa = line.split()
                 aq_order=np.append(aq_order, name_in_file)
             except:
-                x=1
+                pass
     aq_order=np.append(aq_order, 'num conc')
     aq_order=np.append(aq_order, 'Ddry')
     aq_order=np.append(aq_order, 'Dwet')
     aq_order=np.append(aq_order, 'kappa')
     
-    num_particles=len(trajectory.parcel_states[0].particle_population.particles)
-
+    num_particles=len(state.particle_population.particles)
+        
     output_dict={}
-    output_dict['times']=np.array([trajectory.ts[-1]])
+    output_dict['times']=np.array([time]) #trajectory.ts[-1]])
     output_dict['particles']=np.zeros((num_particles, len(aq_order)))
     output_dict['particle species']=aq_order
-    output_dict['x']=np.array([trajectory.parcel_states[-1].x])
-    output_dict['y']=np.array([trajectory.parcel_states[-1].y])
-    output_dict['z']=np.array([trajectory.parcel_states[-1].z])
-    output_dict['S']=np.array([trajectory.parcel_states[-1].S])
-    output_dict['T']=np.array([trajectory.parcel_states[-1].T])
-    output_dict['P']=np.array([trajectory.parcel_states[-1].P])
-    output_dict['activated fraction']=np.array([trajectory.parcel_states[-1].get_activated_fraction()])
+    output_dict['x']=np.array([state.x])
+    output_dict['y']=np.array([state.y])
+    output_dict['z']=np.array([state.z])
+    output_dict['S']=np.array([state.S])
+    output_dict['T']=np.array([state.T])
+    output_dict['P']=np.array([state.P])
+    output_dict['activated fraction']=np.array([state.get_activated_fraction()])
     
-    particles = trajectory.parcel_states[-1].particle_population.particles
-    num_concs = trajectory.parcel_states[-1].particle_population.num_concs
+    particles = state.particle_population.particles
+    num_concs = state.particle_population.num_concs
 
     for pNumber, (particle, num_conc) in enumerate(zip(particles, num_concs)):
         
@@ -112,18 +112,18 @@ def last_state_array(trajectory, specdata_path='../species_data'):
                 if particle_idx!=None:
                     output_dict['particles'][pNumber, traj_idx]=particle.masses[particle_idx]
     
-    if trajectory.parcel_states[-1].TraceGas_population:
+    if state.TraceGas_population:
         gas_order=np.zeros(0)
-        for gas in trajectory.parcel_states[0].TraceGas_population.gases:
+        for gas in state.TraceGas_population.gases:
             gas_order=np.append(gas_order,gas.name)
     
         output_dict['gas species']=gas_order
         output_dict['gases']=np.zeros(len(gas_order))
-        gases = trajectory.parcel_states[-1].TraceGas_population.gases
-        gas_concs = trajectory.parcel_states[-1].TraceGas_population.concs
+        # gases = state.TraceGas_population.gases
+        # gas_concs = state.TraceGas_population.concs
         for ii, (species) in enumerate(gas_order):
-            traj_idx = trajectory.parcel_states[-1].TraceGas_population.get_species_idx(species)
-            output_dict['gases'][ii]=trajectory.parcel_states[-1].TraceGas_population.concs[traj_idx]
+            traj_idx = state.TraceGas_population.get_species_idx(species)
+            output_dict['gases'][ii]=state.TraceGas_population.concs[traj_idx]
     else:
         output_dict['gas species']=None
         output_dict['gases']=None

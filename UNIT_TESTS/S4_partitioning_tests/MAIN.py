@@ -10,14 +10,14 @@ Created on Fri Sep 27 10:06:10 2024
 # probably need a different way to do this but I don't 
 # want to mess with sys.path
 
-import shutil, os, sys
+import shutil, os, sys, pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
 files1 = ['particles.py', 'constants.py', 'scenario.py', 'aerosol_species.py',
          'utilities.py', 'systems.py', 'driver.py', 'visualization.py', 
-         'TraceGases.py', 'Reactions.py']
+         'TraceGases.py', 'Reactions.py', 'write_files.py']
 
 for file in files1:
     source = '../../multipart/'+file
@@ -102,7 +102,6 @@ for trajectory in trajectory_ensemble:
     HSO3_fraction.append((particle.masses[particle.get_species_idx('HSO3')]/particle.species[particle.get_species_idx('HSO3')].molar_mass)/total_moles)
     SO3_fraction.append((particle.masses[particle.get_species_idx('SO3')]/particle.species[particle.get_species_idx('SO3')].molar_mass)/total_moles)
     
-
 ax.plot(pHs, SO2_fraction, '-b', label=r'SO$_2$')
 ax.plot(pHs, HSO3_fraction, '-r', linestyle='dashed', label=r'HSO$_3$')
 ax.plot(pHs, SO3_fraction, '-g', linestyle='dashdot', label=r'SO$_3$')
@@ -115,6 +114,8 @@ ax.legend(fontsize=legend_fontsize)
 ax.set_xlim(0, 8)
 fig.savefig('S(IV)_partitioning.png', bbox_inches='tight', dpi=200)
 
+output_data={'pH': pHs, 'SO2 fraction': np.array(SO2_fraction), 'HSO3 fraction': np.array(HSO3_fraction), 'SO3 fraction': np.array(SO3_fraction)}
+pickle.dump(output_data, open('S4_fractions.pkl', 'wb'))
 
 # %% make the plot
 

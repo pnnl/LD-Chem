@@ -10,14 +10,16 @@ Created on Fri Sep 27 10:06:10 2024
 # probably need a different way to do this but I don't 
 # want to mess with sys.path
 
-import shutil, os
+import shutil, os, pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import pyrcel as pm
+from scipy.special import erfinv
 
 files1 = ['particles.py', 'constants.py', 'scenario.py', 'aerosol_species.py',
-         'utilities.py', 'systems.py', 'driver.py', 'visualization.py', 
-         'TraceGases.py', 'Reactions.py']
+          'utilities.py', 'systems.py', 'driver.py', 'visualization.py', 
+          'TraceGases.py', 'Reactions.py', 'write_files.py']
 
 for file in files1:
     source = '../../multipart/'+file
@@ -36,6 +38,7 @@ for directory in directories:
     source = directory
     destination = source.replace('.', '')
     destination = destination.replace('/', '')
+    destination = destination.replace('multipart', '')
     if os.path.isdir(destination):
         shutil.rmtree(destination)    
     destination = os.getcwd()+'/'+destination
@@ -43,12 +46,14 @@ for directory in directories:
 
 from UnitTests_driver import simulate_condensation_test
 
+
 # %% set up the plot
 
 axis_label_fontsize=18
 axis_tick_fontsize=16
 legend_fontsize=16
 markersize=11
+output_data={}
 
 fig, ((ax11, ax12, ax13), (ax21, ax22, ax23)) = plt.subplots(2, 3, figsize=(3.0*6.4, 2.0*4.8), constrained_layout=False, sharex='col', sharey='row')
 ax11.tick_params(axis='both', which="both",labelsize=axis_tick_fontsize, pad=8, width=1)
@@ -94,21 +99,22 @@ for x, m in zip(np.unique(published_data['study']), ['o', 'v', 's', '^', '<']):
     ax11.plot(published_data['updraft velocity'][ix[0]], published_data['max SS'][ix[0]], marker=m, mfc='w', mec='k', linewidth=0, markersize=markersize, label=x)
     ax21.plot(published_data['updraft velocity'][ix[0]], published_data['activated fraction'][ix[0]], marker=m, mfc='w', mec='k', linewidth=0, markersize=markersize)
 
-
 # do the simulations
 number_mode_diameter = 100e-9
 sigma = 2.0
 S0 = 0.85
 Ntot = 1e9
 Vs = np.logspace(-1, 1, 10)
+output_data['changing velocity']={}
+
 
 print('============= updraft velocity runs:', len(Vs), 'scenarios =============')
 
 trajectory_ensemble = simulate_condensation_test(N_scenarios=len(Vs),
-        z_start=0.,z_end=1000.,dt=1.0,
+        z_start=0.,z_end=1000.,dt=0.5,
         Ddry=number_mode_diameter,sigma=sigma,Ntot=Ntot, Npart=20,
         updraft_velocity=Vs,S0=S0,P0=101325,T0=298,
-        pH0=7.0,accom=1., verbosity=50,
+        pH0=7.0,accom=0.1, verbosity=50,
         radius_scale='lin',solver='ode15s',
         species_names=['AS'], mass_fractions=np.array([1.]),
         gas_names=None, gas_conc=None,
@@ -126,6 +132,10 @@ for trajectory in trajectory_ensemble:
 
 ax11.plot(Vs, max_S, '-ro')
 ax21.plot(Vs, activated_fraction, '-ro')
+
+output_data['changing velocity']['velocity']=Vs
+output_data['changing velocity']['activated fraction']=np.array(activated_fraction)
+output_data['changing velocity']['max SS']=np.array(max_S)
 
 # fix the plot
 ax11.set_xscale('log')
@@ -156,7 +166,8 @@ sigma = 2.0
 S0 = 0.85
 Ntot = np.logspace(8,10,10)
 Vs = 0.5
-
+output_data['changing Ntot']={}
+'''
 print()
 print('============= number concentration runs:', len(Ntot), 'scenarios =============')
 
@@ -183,6 +194,9 @@ for trajectory in trajectory_ensemble:
 ax12.plot(np.array((Ntot))/100**3, max_S, '-ro')
 ax22.plot(np.array((Ntot))/100**3, activated_fraction, '-ro')
 
+output_data['changing Ntot']['Ntot']=Ntot
+output_data['changing Ntot']['activated fraction']=np.array(activated_fraction)
+output_data['changing Ntot']['max SS']=np.array(max_S)
 
 # fix the plot
 ax22.set_xscale('log')
@@ -210,12 +224,13 @@ sigma = 2.0
 S0 = 0.85
 Ntot = 1e9
 Vs = 0.5
+output_data['changing radius']={}
 
 print()
 print('============= number mode radius:', len(number_mode_diameter), 'scenarios =============')
 
 trajectory_ensemble = simulate_condensation_test(N_scenarios=len(number_mode_diameter),
-        z_start=0.,z_end=1000.,dt=1.0,
+        z_start=0.,z_end=1000.,dt=0.3,
         Ddry=number_mode_diameter,sigma=sigma,Ntot=Ntot, Npart=20,
         updraft_velocity=Vs,S0=S0,P0=101325,T0=298,
         pH0=7.0,accom=1., verbosity=50,
@@ -237,6 +252,9 @@ for trajectory in trajectory_ensemble:
 ax13.plot(0.5*np.array((number_mode_diameter))*1e6, max_S, '-ro')
 ax23.plot(0.5*np.array((number_mode_diameter))*1e6, activated_fraction, '-ro')
 
+output_data['changing radius']['number mean radius']=0.5*np.array((number_mode_diameter))*1e6
+output_data['changing radius']['activated fraction']=np.array(activated_fraction)
+output_data['changing radius']['max SS']=np.array(max_S)
 
 # fix the plot
 ax23.set_xscale('log')
@@ -245,9 +263,14 @@ ax23.set_xlabel(r'Number Mode Radius ($\mu$m)', fontsize=axis_label_fontsize, la
 
 ax13.text(0.04, 0.95, ' E ', fontsize=axis_label_fontsize, ha='left', va='top', transform=ax13.transAxes, bbox={'facecolor': 'w', 'edgecolor': 'k'})
 ax23.text(0.04, 0.95, ' F ', fontsize=axis_label_fontsize, ha='left', va='top', transform=ax23.transAxes, bbox={'facecolor': 'w', 'edgecolor': 'k'})
-
-fig.savefig('condensation_tests.png', bbox_inches='tight', dpi=200)
+'''
+# fig.savefig('condensation_tests.png', bbox_inches='tight', dpi=200)
 plt.show()
+
+
+pickle.dump(output_data, open('condensation_test_data.pkl', 'wb'))
+
+
 
 # %%
 # delete all the modules that got moved to UNIT_TESTS/condensation 
@@ -262,6 +285,6 @@ for file in files2:
 for directory in directories:
     directory = directory.replace('.', '')
     directory = directory.replace('/', '')
+    directory = directory.replace('multipart', '')
     shutil.rmtree(directory)
 
-shutil.rmtree('processes')

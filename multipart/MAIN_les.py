@@ -16,25 +16,27 @@ num_concs=pickle.load(open('num_concs', 'rb'))
 aero_spec_names=pickle.load(open('aero_spec_names', 'rb'))
 aero_spec_fracs=pickle.load(open('aero_spec_fracs', 'rb'))
 pHs=pickle.load(open('pHs', 'rb'))
+
 gas_data=pickle.load(open('gas_data', 'rb'))
 les_number=pickle.load(open('trajectory_number', 'rb'))
 
-
 gas_names = ['SO2', 'O3', 'H2O2', 'NO2', 'IEPOX']
-les_output_file = sys.argv[1]+'/parcel_traces_'+les_number+'.pkl' #'../datasets/parcel_traces_se/parcel_traces_000000.pkl'  
+les_output_file = sys.argv[1]+'/parcel_traces_'+les_number+'.pkl'
 
-print('Reading', les_output_file)
+with open('RUN_PROGRESS.out', 'w') as f:
+    print('Reading', les_output_file, file=f)
 
 trajectory = simulate_les_trajectories(les_output_file=les_output_file, output_path=str(sys.argv[2]),
         dt=6.0,diameters=diameters,N_concs=num_concs,
-        pHs=pHs, accom=1., verbosity=50,
+        pHs=pHs, accom=1e-2, verbosity=50,
         radius_scale='log',solver='ode15s',
         species_names=aero_spec_names, mass_fractions=aero_spec_fracs,
         gas_names=gas_names, gas_data=gas_data,
-        specdata_path='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/species_data/', 
-        mechanism_data_path='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/mechanisms/',
+        specdata_path='/rcfs/projects/partikkel/multipart/species_data/',
+        mechanism_data_path='/rcfs/projects/partikkel/multipart/mechanisms/',
         condensation = True, collisions = False, settling = False,
-        cocondensation = True, chemistry = ['sulfate', 'IEPOX'], freezing = False, write_every=60)
+        cocondensation = True, entrainment = False, freezing = False,
+        chemistry = ['IEPOX', 'sulfate'], write_every=60)
     
 
 #pickle.dump(trajectory, open('../'+output_directory+'/'+output_file+'.pkl','wb'))

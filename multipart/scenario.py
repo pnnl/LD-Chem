@@ -323,7 +323,7 @@ def create_les_scenario(les_trajectory_file,
     
     # set up the S, T, and P drivers
     LES_data = pickle.load(open(les_trajectory_file, 'rb'))
-    LES_data['t']-=np.min(LES_data['t'])   
+    LES_data['t']-=np.min(LES_data['t'])
     
     trajectories_settings = []
     start_times = []
@@ -443,7 +443,7 @@ def create_pichamber_scenario(run_number=0, trajectory_path='../datasets/',
             chemistry=None, cocondensation=False):
     
     # read in the trajectories
-    filename=trajectory_path+str(run_number).zfill(6)+'.txt'
+    filename=trajectory_path+'/'+str(run_number).zfill(6)+'.txt'
     ts,x,y,z,u,v,w,T,Qv,S=np.loadtxt(filename, delimiter=' ', unpack=True)
     P=np.repeat(101325, len(ts))
     S+=1   

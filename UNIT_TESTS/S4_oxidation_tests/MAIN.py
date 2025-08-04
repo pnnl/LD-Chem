@@ -10,7 +10,7 @@ Created on Fri Nov 24 10:06:10 2024
 # probably need a different way to do this but I don't 
 # want to mess with sys.path
 
-import shutil, os, sys
+import shutil, os, sys, pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -18,7 +18,7 @@ import pandas as pd
 
 files1 = ['particles.py', 'constants.py', 'scenario.py', 'aerosol_species.py',
          'utilities.py', 'systems.py', 'driver.py', 'visualization.py', 
-         'TraceGases.py', 'Reactions.py']
+         'TraceGases.py', 'Reactions.py', 'write_files.py']
 
 for file in files1:
     source = '../../multipart/'+file
@@ -60,6 +60,7 @@ ax.tick_params(which="minor", axis="both", length=4)
 ax.grid(which='major', color='grey', alpha=0.4, linewidth=1)
 
 pHs=np.linspace(2, 8, 10)
+output_data={'pH': pHs, 'dSO4_dt': {}}
 
 # %% do the ozone runs
 
@@ -76,7 +77,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         collisions = False, settling = False,
         cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
-
+output_data['O3']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='O3')
 ax.plot(published_data['pH'], published_data['SO4 rate'], 'bo', markersize=markersize, label=r'O$_3$')
 ax.plot(pHs, dSO4_dt*1e9*3600, '-b')
@@ -97,6 +98,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         collisions = False, settling = False,
         cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
+output_data['H2O2']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='H2O2')
 ax.plot(published_data['pH'], published_data['SO4 rate'], 'rs', markersize=markersize, label=r'H$_2$O$_2$')
 ax.plot(pHs, dSO4_dt*1e9*3600, '-r')
@@ -116,6 +118,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         collisions = False, settling = False,
         cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
+output_data['NO2']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='NO2')
 ax.plot(published_data['pH'], published_data['SO4 rate'], 'g^', markersize=markersize, label=r'NO$_2$')
 ax.plot(pHs, dSO4_dt*1e9*3600, '-g')
@@ -135,6 +138,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         collisions = False, settling = False,
         cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
+output_data['HNO2']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='HONO')
 ax.plot(published_data['pH'], published_data['SO4 rate'], 'v', mfc='c', mec='c', markersize=markersize, label=r'HNO$_2$')
 ax.plot(pHs, dSO4_dt*1e9*3600, '-', color='c')
@@ -155,7 +159,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         collisions = False, settling = False,
         cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
-
+output_data['O2+TMI']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='O2+TMI')
 ax.plot(published_data['pH'], published_data['SO4 rate'], '<', mfc='gold', mec='gold', markersize=markersize, label=r'O$_2$+TMI')
 ax.plot(pHs, dSO4_dt*1e9*3600, '-', color='gold')  
@@ -170,6 +174,9 @@ ax.set_xlabel('Droplet pH', fontsize=axis_label_fontsize, labelpad=15)
 ax.set_ylabel(r'SO$_4^{2-}$ produxtion rate ($\mu$g m$^3$ hr$^{-1}$)', fontsize=axis_label_fontsize, labelpad=15)
 fig.savefig('S4_oxidation.png', bbox_inches='tight', dpi=200)
 
+
+
+pickle.dump(output_data, open('sulfate_oxidation_data.pkl', 'wb'))
 
 # %%
 # delete all the modules that got moved to UNIT_TESTS/condensation 

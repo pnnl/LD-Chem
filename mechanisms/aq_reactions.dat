@@ -7,7 +7,6 @@ H2SO4                HSO4,H+                        5.0E5                   0   
 HSO4,H+              H2SO4                          5.0E2                   0            sulfate
 HSO4                 SO4,H+                         5.0E3                   2720         sulfate
 SO4,H+               HSO4                           5.0E5                   2720         sulfate
-IEPOX,H2O            IEPOX_OS,tetrol,tetrol_olig    -999                    0            IEPOX 
 S(IV),O3             S(VI)                          -999                    0            sulfate
 S(IV),H2O2           S(VI)                          -999                    0            sulfate
 S(IV),NO2            S(VI)                          -999                    0            sulfate
@@ -21,3 +20,4 @@ OHrad,O2-            OH,O2                          3.5E7                   720 
 HO2                  O2-,H+                         8.0E3                   0            IEPOX
 O2-,H+               HO2                            5.0E5                   0            IEPOX
 IEPOX,OHrad          IEPOX_OH_SOA                   -999                    0            IEPOX
+IEPOX,H2O            IEPOX_OS,tetrol,tetrol_olig    -999                    0            IEPOX
