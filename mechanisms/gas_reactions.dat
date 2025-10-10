@@ -1,0 +1,3 @@
+reactants            products         rate_(mol/m3^(1-n)/s)       high_P_limit         T_dependence_(K)       form
+OH,NO2               HNO3              1.16E6                     1.81E7               -4.5                   troe
+OH,NO2               HOONO             3.63E4                     2.11E7               -4.5                   troe

@@ -14,6 +14,7 @@ import shutil, os, sys, pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib.font_manager as font_manager
 
 files1 = ['particles.py', 'constants.py', 'scenario.py', 'aerosol_species.py',
          'utilities.py', 'systems.py', 'driver.py', 'visualization.py', 
@@ -67,10 +68,12 @@ trajectory_ensemble = simulate_sulfate_partitioning(gas_concentrations,
 
 # %% make the plot
 
-axis_label_fontsize=18
-axis_tick_fontsize=16
-legend_fontsize=16
-markersize=11
+axis_label_fontsize=13
+axis_tick_fontsize=11
+legend_fontsize=12
+markersize=7
+fontname = 'Helvetica'
+font = font_manager.FontProperties(family=fontname, size=legend_fontsize)
 
 fig, ax = plt.subplots(1, 1, figsize=(1.0*6.4, 1.0*4.8), constrained_layout=False)
 ax.tick_params(axis='both', which="both",labelsize=axis_tick_fontsize, pad=8, width=1)
@@ -108,10 +111,19 @@ ax.plot(pHs, SO3_fraction, '-g', linestyle='dashdot', label=r'SO$_3$')
 
 ax.set_xlim(np.min(pHs), np.max(pHs))
 ax.set_ylim(0,1)
-ax.set_xlabel('pH', labelpad=15, fontsize=axis_label_fontsize)
-ax.set_ylabel('aqueous fraction', labelpad=15, fontsize=axis_label_fontsize)
-ax.legend(fontsize=legend_fontsize)
+ax.set_xlabel('Droplet pH', font=fontname, labelpad=15, fontsize=axis_label_fontsize)
+ax.set_ylabel('aqueous fraction', font=fontname, labelpad=15, fontsize=axis_label_fontsize)
+ax.legend(loc='lower center', bbox_to_anchor=(0.5, 1.02), ncol=3, frameon=False, prop=font)
 ax.set_xlim(0, 8)
+ax.text(-0.18, 1.15, 'B', font=fontname, fontsize=1.5*axis_label_fontsize, transform=ax.transAxes)
+
+for label in ax.get_xticklabels():
+    label.set_fontproperties(fontname)
+    label.set_fontsize(axis_tick_fontsize)
+for label in ax.get_yticklabels():
+    label.set_fontproperties(fontname)
+    label.set_fontsize(axis_tick_fontsize)
+
 fig.savefig('S(IV)_partitioning.png', bbox_inches='tight', dpi=200)
 
 output_data={'pH': pHs, 'SO2 fraction': np.array(SO2_fraction), 'HSO3 fraction': np.array(HSO3_fraction), 'SO3 fraction': np.array(SO3_fraction)}
@@ -161,10 +173,18 @@ ax.plot(pHs, SO3_conc/gas_conc, '-g', linestyle='dashdot', label=r'SO$_3$')
 ax.set_xlim(np.min(pHs), np.max(pHs))
 ax.set_ylim(1e-10, 1e-2)
 ax.set_yscale('log')
-ax.set_xlabel('pH', labelpad=15, fontsize=axis_label_fontsize)
-ax.set_ylabel('aqueous concentration (M/ppb)', labelpad=15, fontsize=axis_label_fontsize)
-ax.legend(fontsize=legend_fontsize)
+ax.set_xlabel('pH', font=fontname, labelpad=15, fontsize=axis_label_fontsize)
+ax.set_ylabel('aqueous concentration (M/ppb)', font=fontname, labelpad=15, fontsize=axis_label_fontsize)
+ax.legend(fontsize=legend_fontsize, prop=font)
 ax.set_xlim(0, 8)
+
+for label in ax.get_xticklabels():
+    label.set_fontproperties(fontname)
+    label.set_fontsize(axis_tick_fontsize)
+for label in ax.get_yticklabels():
+    label.set_fontproperties(fontname)
+    label.set_fontsize(axis_tick_fontsize)
+
 fig.savefig('S(IV)_concentrations.png', bbox_inches='tight', dpi=200)
 
 

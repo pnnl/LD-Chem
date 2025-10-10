@@ -204,3 +204,8 @@ def S_to_wv(S,T,P):
     wv = e*0.622/(p_hPa - e_sat) 
     
     return wv
+
+def H2O_gas_conc(S,T,P):
+    Psat = es(T) # Pa
+    P_H2O = S*Psat # Pa
+    return P_H2O/(c.R*T) # mol/m^3

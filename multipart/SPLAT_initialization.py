@@ -66,20 +66,25 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
     print()
     
     # read in the measured data
-    Dp_lowers, Dp_uppers, measured_N, N_error = read_FIMS(size_distribution_file, aimms_file, z, dz) # diameters in nm and N in #/cm^3
+    measured_Dp_lowers, measured_Dp_uppers, measured_N, measured_N_error = read_FIMS(size_distribution_file, aimms_file, z, dz) # diameters in nm and N in #/cm^3
+    idx=np.where(measured_Dp_uppers<=1000)[0]
+    original_Dp_lowers=measured_Dp_lowers[idx]
+    original_Dp_uppers=measured_Dp_uppers[idx]
+    original_N=measured_N[idx]
+    original_N_error=measured_N_error[idx]
+    original_Dp_mids = original_Dp_lowers + 0.5*(original_Dp_uppers - original_Dp_lowers)
     
-    idx=np.where(Dp_uppers<=1000)[0]
-    Dp_lowers=Dp_lowers[idx]
-    Dp_uppers=Dp_uppers[idx]
-    measured_N=measured_N[idx]
-    N_error=N_error[idx]
-    Dp_mids = Dp_lowers + 0.5*(Dp_uppers - Dp_lowers)
     
     # measured_Ntot=np.sum(measured_N[idx[0]])
     avg_number_fraction, number_fraction_error = splat_number_fractions(splat_file, aimms_file, size_distribution_file, splat_species, z, dz)    
     ams_mass_fractions, ams_mass_fraction_error, measured_total_mass, measured_total_mass_error = ams_mass_fraction(ams_file, aimms_file, size_distribution_file, z, dz)       
     checks=[False]
-        
+    
+    # if float(Npart)<=float(len(avg_number_fraction.keys()))*float(len(Dp_mids)):
+    #     print('ERROR: Not enough particles to fill the size distribution bins!')
+    #     print('Either change Npart or grid.')
+    #     sys.exit()
+
     counter = 0
     maxcounter=100
     print('sampling', Npart, 'particles...')
@@ -91,52 +96,95 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
         particle_species=[]
         for species in avg_number_fraction.keys():
             particle_species.append(species)
+        '''
+        all_sampled=False
+        while all_sampled==False:
+            rand=np.floor(len(avg_number_fraction.keys())*np.random.rand(Npart))
+            ptypes=['None']*Npart
+            for ii in range(len(particle_species)):
+                idx=np.where(rand==ii)
+                print(particle_species[ii], len(idx[0]))
+                if len(idx[0])<12:
+                    all_sampled=False
+                else: #if len(idx[0])>0:
+                    for jj in idx[0]:
+                        ptypes[jj]=particle_species[ii]
+                    all_sampled=True
+                print()
+        '''
 
-        rand=np.floor(len(avg_number_fraction.keys())*np.random.rand(Npart))
-        ptypes=['None']*Npart    
-        for ii in range(len(particle_species)):
-            idx=np.where(rand==ii)
-            if len(idx[0])>0:
-                for jj in idx[0]:
-                    ptypes[jj]=particle_species[ii]
-                
+        ptypes = []
+        for species in particle_species:
+            ptypes.extend([species] * 1)#len(original_Dp_uppers[::3])) # the number here needs to match the grid below
+        remaining = Npart - len(ptypes)
+        if remaining > 0:
+            ptypes.extend(np.random.choice(particle_species, size=remaining).tolist())
+        np.random.shuffle(ptypes)
+                                
         # get the size distribution for each type
         particle_diameters=np.zeros(Npart)
         particle_num_concs=np.zeros(Npart)
-        total_SizeDist=np.zeros(len(Dp_mids))
+        # total_SizeDist=np.zeros(len(original_Dp_mids))
+        
         for ii in range(len(particle_species)):
-            
             particle_type=particle_species[ii]
             if particle_type=='BC':
                 Dpg = 110
                 sigma = 1.6
                 params=[avg_number_fraction['BC'], Dpg, sigma]
-                SizeDist=N_multiplier*size_dependent_composition(Dp_mids, measured_N, 1,
+                original_SizeDist=N_multiplier*size_dependent_composition(original_Dp_mids, original_N, 1,
                                                         splat_cutoff, 
                                                         avg_number_fraction[particle_type], 
                                                         [1.0], params)
-                total_SizeDist+=SizeDist
+                # total_SizeDist+=SizeDist
             elif particle_type=='OIN':
                 Dpg = 110 # taken from accumulation mode of MAM4
                 sigma = 1.6
                 params=[avg_number_fraction['OIN'], Dpg, sigma]
-                SizeDist=N_multiplier*size_dependent_composition(Dp_mids, measured_N, 1,
+                original_SizeDist=N_multiplier*size_dependent_composition(original_Dp_mids, original_N, 1,
                                                         splat_cutoff, 
                                                         avg_number_fraction[particle_type], 
                                                         [1.0], params)
-                total_SizeDist+=SizeDist
+                # total_SizeDist+=SizeDist
             else:
                 params=[]
                 for mode in range(modes):
                     params.append(avg_number_fraction[particle_type]*mode_fractions[particle_type][mode])
                     params.append(fitting_params[mode][1])
                     params.append(fitting_params[mode][2])
-                SizeDist = N_multiplier*size_dependent_composition(Dp_mids, measured_N, modes,
+                original_SizeDist = N_multiplier*size_dependent_composition(original_Dp_mids, original_N, modes,
                                                         splat_cutoff, 
                                                         avg_number_fraction[particle_type], 
                                                         mode_fractions[particle_type], params) # 1/m^3
-                total_SizeDist+=SizeDist
-
+                # total_SizeDist+=SizeDist
+            
+            # ===============================================================================================
+            # make sparser grid
+            grid=3
+            if grid>1:
+                Dp_uppers=[]
+                Dp_lowers=[]
+                SizeDist=[]
+                measured_N=[]
+                measured_N_error=[]
+                for jj in range(grid-1, len(original_N), grid):
+                    Dp_uppers.append(original_Dp_uppers[jj])
+                    Dp_lowers.append(original_Dp_lowers[jj-grid+1])
+                    SizeDist.append(np.sum(original_SizeDist[jj-grid+1:jj]))
+                    measured_N_error.append(np.sum(original_N_error[jj-grid+1:jj]))
+                    measured_N.append(np.sum(original_N[jj-grid+1:jj]))
+                SizeDist=np.array((SizeDist))
+                Dp_uppers=np.array((Dp_uppers))
+                Dp_lowers=np.array((Dp_lowers))
+            else:
+                measured_N=original_N
+                measured_N_error=original_N_error
+                Dp_uppers=original_Dp_uppers
+                Dp_lowers=original_Dp_lowers
+                SizeDist=original_SizeDist
+            Dp_mids = Dp_lowers + 0.5*(Dp_uppers-Dp_lowers)
+            # ===============================================================================================
+            '''
             # sample parameters (force at least one particle in every bin)
             idx=np.where(np.array([ptypes])==particle_type)[1]
             bins_full=False
@@ -147,12 +195,12 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
                     bins_full=True
             sampled_Dps=10**rands # nm
             sampled_Ns=np.interp(sampled_Dps, xp=Dp_mids, fp=SizeDist) # cm^-3
-            
+            '''
             # sample parameters (do not force one in each bin)
-            # idx=np.where(np.array([ptypes])==particle_type)[1]
-            # rands=np.log10(np.min(Dp_uppers))+(np.log10(np.max(Dp_uppers))-np.log10(np.min(Dp_uppers)))*np.random.rand(len(idx))
-            # sampled_Dps=10**rands # nm
-            # sampled_Ns=np.interp(sampled_Dps, xp=Dp_mids, fp=SizeDist) # cm^-3
+            idx=np.where(np.array([ptypes])==particle_type)[1]
+            rands=np.log10(np.min(Dp_uppers))+(np.log10(np.max(Dp_uppers))-np.log10(np.min(Dp_uppers)))*np.random.rand(len(idx))
+            sampled_Dps=10**rands # nm
+            sampled_Ns=np.interp(sampled_Dps, xp=Dp_mids, fp=SizeDist) # cm^-3
             
             # change number concentrations based on histogram
             for jj in range(0,len(Dp_uppers)):
@@ -180,24 +228,6 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
         # match the measured number concentration
         #mult=np.sum(measured_N)/(np.sum(particle_num_concs)/100**3)
         #particle_num_concs*=mult
-        
-        # plot ==================================================
-        #bottom=np.zeros(len(Dp_uppers)-1)
-        #plt.errorbar(Dp_mids, measured_N, fmt='o', yerr=N_error, mfc='w', mec='k', ecolor='k')
-        #plt.plot(Dp_mids, total_SizeDist, '-r', zorder=100)
-        #for t, c in zip(avg_number_fraction.keys(), ['grey','gold','r','b','g','C6']):
-        #  idx=np.where(np.array([ptypes])==t)
-        #  hist=np.histogram(1e9*particle_diameters[idx[1]], bins=Dp_uppers, weights=particle_num_concs[idx[1]]/100**3)
-        #  widths=hist[1][1:]-hist[1][:-1]
-        #  plt.bar(Dp_uppers[:-1], hist[0], width=widths, align='edge', bottom=bottom, facecolor=c, edgecolor='k', label=t)
-        #  bottom+=hist[0]
-        #plt.xscale('log')
-        #plt.legend()
-        #plt.ylim(0,)
-        #plt.savefig('SAMPLED_PARTICLES.png', bbox_inches='tight')
-        #plt.close()
-        # plot ==================================================
-        
         
         # sample the mass fraction of species in each particle
         aero_spec_names=[]
@@ -338,8 +368,8 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
     
     # plot ==================================================
     bottom=np.zeros(len(Dp_uppers)-1)
-    plt.errorbar(Dp_mids, measured_N/np.max(measured_N), fmt='o', yerr=N_error/np.max(measured_N), mfc='w', mec='k', ecolor='k')
-    plt.plot(Dp_mids, total_SizeDist/np.max(total_SizeDist), '-r', zorder=100)
+    plt.errorbar(Dp_mids, measured_N/np.max(measured_N), fmt='o', yerr=measured_N_error/np.max(measured_N), mfc='w', mec='k', ecolor='k')
+    # plt.plot(Dp_mids, total_SizeDist/np.max(total_SizeDist), '-r', zorder=100)
     hist=np.histogram(1e9*particle_diameters, bins=Dp_uppers, weights=particle_num_concs/100**3)
     hist_max=np.max(hist[0])
     for t, c in zip(avg_number_fraction.keys(), ['grey','gold','r','b','g','C6']):
@@ -594,6 +624,7 @@ def optimize_splat_size_distribution(datapoints=10000,size_distribution_file=Non
     # plt.xscale('log')
     # plt.legend()
     # plt.ylim(0,)
+    # plt.show()
     # plt.savefig('OPTIMIZATION.png', bbox_inches='tight')
     # plt.close()
     # print(np.sum(total_Ns), np.sum(measured_Ntot))
@@ -931,26 +962,26 @@ def read_FIMS(FIMS_file, AIMMS_file, z, dz):
     error_N = np.nanstd(FIMS_subdata, axis = 0)
 
     # make less columns
-    grid=2
-    if grid>1:
-        Dp_uppers=[]
-        Dp_lowers=[]
-        avg=[]
-        error=[]
-        for i in range(1, len(avg_N), grid):
-            Dp_uppers.append(FIMS_data['UPPER_BIN_SIZE_nanometer'][i])
-            Dp_lowers.append(FIMS_data['LOWER_BIN_SIZE_nanometer'][i-grid+1])
-            avg.append(avg_N[i-grid+1] + avg_N[i])
-            error.append(error_N[i-grid+1] + error_N[i])
-        avg=np.array((avg))
-        Dp_uppers=np.array((Dp_uppers))
-        Dp_lowers=np.array((Dp_lowers))
-        error=np.array((error))
-    else:
-        avg=avg_N
-        Dp_uppers=FIMS_data['UPPER_BIN_SIZE_nanometer']
-        Dp_lowers=FIMS_data['LOWER_BIN_SIZE_nanometer']
-        error=error_N
+    # grid=1
+    # if grid>1:
+    #     Dp_uppers=[]
+    #     Dp_lowers=[]
+    #     avg=[]
+    #     error=[]
+    #     for i in range(1, len(avg_N), grid):
+    #         Dp_uppers.append(FIMS_data['UPPER_BIN_SIZE_nanometer'][i])
+    #         Dp_lowers.append(FIMS_data['LOWER_BIN_SIZE_nanometer'][i-grid+1])
+    #         avg.append(avg_N[i-grid+1] + avg_N[i])
+    #         error.append(error_N[i-grid+1] + error_N[i])
+    #     avg=np.array((avg))
+    #     Dp_uppers=np.array((Dp_uppers))
+    #     Dp_lowers=np.array((Dp_lowers))
+    #     error=np.array((error))
+    # else:
+    avg=avg_N
+    Dp_uppers=FIMS_data['UPPER_BIN_SIZE_nanometer']
+    Dp_lowers=FIMS_data['LOWER_BIN_SIZE_nanometer']
+    error=error_N
     
     return Dp_lowers, Dp_uppers, avg, error
 
@@ -1144,16 +1175,16 @@ try:
 
     diameters, num_concs, aero_spec_names, aero_spec_fracs, pHs, gas_data=splat_setup(Npart=total_Np,
                            optimization_points=1000, mass_thresholds=mass_fractions,
-                           size_distribution_file='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/BEASD_G1_20160425155810_R2_HISCALE_001s.txt',
-                           splat_file='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/Splat_Composition_25-Apr-2016.txt',
-                           aimms_file='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/AIMMS20_G1_20160425155810_R2_HISCALE020h.txt',
-                           trace_gas_folder='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/CIMS_data',
+                           size_distribution_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/BEASD_G1_20160425155810_R2_HISCALE_001s.txt',
+                           splat_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/Splat_Composition_25-Apr-2016.txt',
+                           aimms_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/AIMMS20_G1_20160425155810_R2_HISCALE020h.txt',
+                           trace_gas_folder='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/CIMS_data',
                            dz=100.0, splat_species=splat_species,
                            mass_fractions=mass_fractions,
                            gas_names=gas_names, les_path=les_path, les_number=les_number,
-                           ams_file='/rcfs/projects/partikkel/multipart/datasets/HISCALE_data_0425/HiScaleAMS_G1_20160425_R0.txt',
+                           ams_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/HiScaleAMS_G1_20160425_R0.txt',
                            override_matching=True,
-                           specdata_path='/rcfs/projects/partikkel/multipart/species_data/')
+                           specdata_path='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/species_data/')
 
     # write pickle files that save the initial aerosol properties
     f = open(output_path+'/diameters', 'wb')

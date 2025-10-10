@@ -19,6 +19,7 @@ from scipy.optimize import fsolve
 from scipy.integrate import trapz
 from numba.typed import Dict
 from numba import types
+import matplotlib.font_manager as font_manager
 
 files1 = ['particles.py', 'constants.py', 'scenario.py', 'aerosol_species.py',
          'utilities.py', 'systems.py', 'driver.py', 'visualization.py', 
@@ -66,6 +67,14 @@ def dry_SizeDist(Dwets, species, S0, T0, P0, pH0):
 
 def get_wet_diameter(Dp, species, S0, T0, P0, pH0):
     aero_spec_names, aero_spec_fracs = get_aero_spec_fracs(molecule_names=[species], molecule_mass_fracs=np.array([1.]),specdata_path='species_data/')
+    
+    if 'H+' not in aero_spec_names:
+        aero_spec_names.append('H+')
+        aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
+    if 'OH' not in aero_spec_names:
+        aero_spec_names.append('OH')
+        aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
+    
     OneParticle = make_particle(Dp, aero_spec_names, aero_spec_fracs, specdata_path='species_data/')
     population0 = ParticlePopulation(particles=[OneParticle], num_concs=[1.0], ids=[0])
     population0 = water_uptake.equilibrate_water(population0, S0, T0, P0, pH0)
@@ -180,8 +189,10 @@ AS_trajectory_ensemble = simulate_IEPOX_chemistry(mu_star,
 
 axis_label_fontsize=12
 axis_tick_fontsize=11
-legend_fontsize=11
+legend_fontsize=10
 markersize=7
+fontname = 'Helvetica'
+font = font_manager.FontProperties(family=fontname, size=legend_fontsize)
 
 MeanDp_fig, (sd,nmean,comp) = plt.subplots(1, 3, figsize=(3.0*6.4, 1.0*4.8), constrained_layout=True)
 sd.tick_params(axis='both', which="both",labelsize=axis_tick_fontsize, pad=8, width=1)
@@ -233,13 +244,13 @@ for ii,(particle, num_conc) in enumerate(zip(AS_trajectory_ensemble[0].parcel_st
 
 sd.plot(model_Dps*1e9, model_Ns/100**3, 'ro', label = 't = 120 min (modeled)')
 sd.set_xscale('log')
-sd.set_ylabel(r'dN/dlogdp (cm$^{-3}$)', fontsize=axis_label_fontsize, labelpad=15)
-sd.set_ylabel(r'dN/dlogdp (cm$^{-3}$)', fontsize=axis_label_fontsize, labelpad=15)
-sd.set_xlabel('particle diameter (nm)', fontsize=axis_label_fontsize, labelpad=15)
+sd.set_ylabel(r'dN/dlogdp (cm$^{-3}$)', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
+sd.set_ylabel(r'dN/dlogdp (cm$^{-3}$)', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
+sd.set_xlabel('Diameter (nm)', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
 sd.set_xlim(10, 1000)
 sd.set_ylim(0,0.035)
-sd.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.1), frameon=False, fontsize=legend_fontsize)
-
+sd.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.1), frameon=False, prop=font)
+sd.text(-0.2, 1.15, 'A', transform=sd.transAxes, font=fontname, fontsize=1.5*axis_label_fontsize)
     
 tetrol_mass = 0
 tetrol_olig_mass = 0
@@ -275,10 +286,11 @@ nmean.plot(model_time/60, number_mean_diameters*1e9, '-r', label='modeled')
 nmean.set_xlim(-10, 130)
 nmean.set_xticks(np.arange(0, 140, 20))
 nmean.set_ylim(80, 140)
-nmean.set_ylabel('number mean diameter (nm)', fontsize=axis_label_fontsize, labelpad=15)
-nmean.set_xlabel('time (minutes)', fontsize=axis_label_fontsize, labelpad=15)
-nmean.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.1), frameon=False, fontsize=legend_fontsize)
-
+nmean.set_ylabel('Number Mean Diameter (nm)', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
+nmean.set_xlabel('Time (minutes)', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
+nmean.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.1), frameon=False, prop=font)
+nmean.text(-0.16, 1.15, 'B', transform=nmean.transAxes, font=fontname, fontsize=1.5*axis_label_fontsize)
+    
 comp.bar([0], [0.5], bottom=[0], color='k', edgecolor='k', label='non-volatile')
 comp.bar([0], [0.5], bottom=[0.5], color='w', edgecolor='k', label='semi-volatile')
 comp.text(0, 0.25, '50%', ha='center', va='center', fontsize=legend_fontsize, color='w')
@@ -294,12 +306,13 @@ comp.text(1.6, bottom + 0.5*(tetrol_olig_mass/total_mass), str(int(100*tetrol_ol
 bottom += tetrol_olig_mass/total_mass
 comp.bar([1], [tetrol_mass/total_mass], bottom=[bottom], color='w', edgecolor='k', label='tetrol')
 comp.text(1, bottom + 0.5*(tetrol_mass/total_mass), str(100-int(100*IEPOX_OS_mass/total_mass)-int(100*tetrol_olig_mass/total_mass))+'%', ha='center', va='center', fontsize=legend_fontsize, color='k')
-comp.set_ylabel('SOA mass fraction', fontsize=axis_label_fontsize, labelpad=15)
+comp.set_ylabel('SOA Mass Fraction', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
 comp.set_xticks([0, 1])
 comp.set_xticklabels(['measured', 'modeled'])
 comp.set_xlim(-0.5, 1.5)
-comp.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.15), frameon=False, fontsize=legend_fontsize)
-
+comp.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.15), frameon=False, prop=font)
+comp.text(-0.16, 1.15, 'C', transform=comp.transAxes, font=fontname, fontsize=1.5*axis_label_fontsize)
+    
 MeanDp_fig.savefig('SizeDists.png', dpi=200, bbox_inches='tight')
 
 

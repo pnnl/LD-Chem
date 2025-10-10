@@ -10,13 +10,13 @@ from dataclasses import dataclass
 from typing import Tuple
 import numpy as np
 import sys
+import constants as c
 
 @dataclass(frozen=True)
-class Reaction:
-    """Reaction: the definition of an aqueous or gas 
+class AqReaction:
+    """Reaction: the definition of an aqueous
     phase reaction. Aqueous reaction rates have units
-    of M^(1-n)/s and gas phase reaction rates have units
-    of (molec/cm^3)^(1-n)/s (no state information)."""
+    of M^(1-n)/s."""
     reactants: list          # name of the species
     products: list
     rate0: float
@@ -25,6 +25,38 @@ class Reaction:
     def get_rate(self, T):
         # returns rate at given temperature
         return self.rate0*np.exp(self.neg_dH_R*((1/T)-(1/298)))  # (mol/m^3^(1-n)/s)
+
+@dataclass(frozen=True)
+class GasReaction:
+    """Reaction: the definition of a gas
+    phase reaction. Gas phase reaction rates have units
+   of (molec/cm^3)^(1-n)/s."""
+    reactants: list          # name of the species
+    products: list
+    rate0: float
+    high_P_limit: float
+    T_dependence: float
+    form: str
+    
+    def get_rate(self, T, P):
+        # returns rate at a given temperature
+        if self.form == 'power':
+            return self.rate0*(T/300)**self.T_dependence
+        elif self.form == 'exp':
+            return self.rate0*np.exp(self.T_dependence/T)
+        elif self.form == 'troe':
+            k0 = self.rate0*(T/300)**self.T_dependence
+            k_inf = self.high_P_limit
+            M = P/(c.R*T)
+            Pr = (k0*M)/k_inf
+            logFc = np.log10(0.41)
+            N = 0.75 - 1.27 * logFc
+            logPr = np.log10(Pr)
+            denom = 1.0 + (logPr / N)**2
+            F = 10.0**(logFc / denom)
+            return (k0*M*F)/(1+Pr)
+            
+            
 
 # @dataclass(frozen=True)
 # class AqueousSpecies:
@@ -39,7 +71,12 @@ class Reaction:
 class AqueousReactions:
     """EquilibriumReactions: the definition of which aqueous reactions
     are accounted for in the model"""
-    reactions: Tuple[Reaction, ...]
+    reactions: Tuple[AqReaction, ...]
+    ids: Tuple[int, ...]
+    
+@dataclass
+class GasReactions:
+    reactions: Tuple[AqReaction, ...]
     ids: Tuple[int, ...]
     
 # @dataclass

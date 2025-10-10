@@ -12,6 +12,6 @@ output_path=str(sys.argv[1])
 ParcelState_file=str(sys.argv[2])[2:]
 trajectory_file=str(sys.argv[3])[2:]
 
-trajectory = restart_les_trajectories(output_path=output_path, ParcelState_file=ParcelState_file, trajectory_file=trajectory_file)
+restart_les_trajectories(output_path=output_path, ParcelState_file=ParcelState_file, trajectory_file=trajectory_file)
     
 

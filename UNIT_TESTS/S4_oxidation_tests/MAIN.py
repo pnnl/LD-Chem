@@ -14,7 +14,7 @@ import shutil, os, sys, pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-
+import matplotlib.font_manager as font_manager
 
 files1 = ['particles.py', 'constants.py', 'scenario.py', 'aerosol_species.py',
          'utilities.py', 'systems.py', 'driver.py', 'visualization.py', 
@@ -52,6 +52,8 @@ axis_label_fontsize=13
 axis_tick_fontsize=11
 legend_fontsize=12
 markersize=7
+fontname = 'Helvetica'
+font = font_manager.FontProperties(family=fontname, size=legend_fontsize)
 
 fig, ax = plt.subplots(1, 1, figsize=(1.0*6.4, 1.0*4.8), constrained_layout=False)
 ax.tick_params(axis='both', which="both",labelsize=axis_tick_fontsize, pad=8, width=1)
@@ -167,13 +169,21 @@ ax.plot(pHs, dSO4_dt*1e9*3600, '-', color='gold')
 # %% fix the plot
 
 ax.set_xlim(2, 8)
-ax.legend(ncol=3, fontsize=legend_fontsize, frameon=False, loc='center', bbox_to_anchor=(0.5, 1.125))
+ax.legend(ncol=3, frameon=False, loc='center', bbox_to_anchor=(0.5, 1.125), prop=font)
 ax.set_ylim(1e-5, 1e5)
 ax.set_yscale('log')
-ax.set_xlabel('Droplet pH', fontsize=axis_label_fontsize, labelpad=15)
-ax.set_ylabel(r'SO$_4^{2-}$ produxtion rate ($\mu$g m$^3$ hr$^{-1}$)', fontsize=axis_label_fontsize, labelpad=15)
-fig.savefig('S4_oxidation.png', bbox_inches='tight', dpi=200)
+ax.set_xlabel('Droplet pH', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
+ax.set_ylabel(r'SO$_4^{2-}$ production rate ($\mu$g m$^3$ hr$^{-1}$)', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
+ax.text(-0.18, 1.15, 'A', font=fontname, fontsize=1.5*axis_label_fontsize, transform=ax.transAxes)
 
+for label in ax.get_xticklabels():
+    label.set_fontproperties(fontname)
+    label.set_fontsize(axis_tick_fontsize)
+for label in ax.get_yticklabels():
+    label.set_fontproperties(fontname)
+    label.set_fontsize(axis_tick_fontsize)
+
+fig.savefig('S4_oxidation.png', bbox_inches='tight', dpi=200)
 
 
 pickle.dump(output_data, open('sulfate_oxidation_data.pkl', 'wb'))

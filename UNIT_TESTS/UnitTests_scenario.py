@@ -89,6 +89,13 @@ def create_constant_parcel(
             molecule_names=species_names, molecule_mass_fracs=mass_fractions,
             specdata_path=specdata_path)
         
+        if 'H+' not in aero_spec_names:
+            aero_spec_names.append('H+')
+            aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
+        if 'OH' not in aero_spec_names:
+            aero_spec_names.append('OH')
+            aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
+        
         if Npart > 1:
             aero_spec_fracs_copy = np.zeros((Npart, len(aero_spec_fracs)))
             aero_spec_fracs_copy[:] = aero_spec_fracs

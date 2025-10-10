@@ -165,6 +165,8 @@ def NO2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
             NO2_idx = ii
         elif name == 'H2SO4':
             H2SO4_idx = ii
+        elif name == 'NO':
+            NO_idx = ii
         elif name == 'HSO4':
             HSO4_idx = ii
         elif name == 'SO4':
@@ -177,6 +179,7 @@ def NO2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
     dCaq_dt_all[HSO3_idx]-=k1*HSO3_conc*NO2_conc
     dCaq_dt_all[SO3_idx]-=k1*SO3_conc*NO2_conc
     dCaq_dt_all[NO2_idx]-=k1*NO2_conc*(SO2_conc+HSO3_conc+SO3_conc)
+    dCaq_dt_all[NO_idx]+=k1*NO2_conc*(SO2_conc+HSO3_conc+SO3_conc)
     
     Keq1 = 1000*1000
     Keq2 = 1.0E-2*1000
@@ -331,8 +334,7 @@ def IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
     dCaq_dt_all[tetrol_olig_idx] += (1/(tau_olig*3600))*tetrol_conc # mol/m^3*s
     dCaq_dt_all[tetrol_idx] -= (1/(tau_olig*3600))*tetrol_conc # mol/m^3*s
     
-    # dCaq_dt_all[particle.get_species_idx('H+')] -= (kaqs[0]*Hplus_conc+kaqs[3]*Hplus_conc*SO4_conc)*H2O_conc*Caq_0[particle.get_species_idx('IEPOX')]
-    dCaq_dt_all[H2O_idx] -= (kaqs[0]*Hplus_conc*H2O_conc+kaqs[1]*HSO4_conc*H2O_conc+kaqs[2]*NH4_conc*H2O_conc)*IEPOX_conc
+    # dCaq_dt_all[H2O_idx] -= (kaqs[0]*Hplus_conc*H2O_conc+kaqs[1]*HSO4_conc*H2O_conc+kaqs[2]*NH4_conc*H2O_conc)*IEPOX_conc
     if HSO4_conc > 0:
         dCaq_dt_all[HSO4_idx] -= kaqs[1]*HSO4_conc*H2O_conc*IEPOX_conc
     if NH4_conc > 0:

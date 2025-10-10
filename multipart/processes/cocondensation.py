@@ -13,74 +13,63 @@ R = 8.314 # m^3*Pa/mol*K
 
 
 @nb.njit()
-def dCaq_dt(Caq_all, aq_names, Cgas_all, gas_names, gas_molec_masses, gas_alphas, 
-            gas_Heffs, T, S, radius, l_org, inorg_radius, water_volume):
+def dCaq_dt(X, radii, water_volumes, num_concs, molar_mass, alpha, Heff, T):
+    '''
+    Parameters
+    ----------
+    X : array of float64
+        Array of cancentrations of a given condensable gaseous species. The first element
+        X[0] is the gaseous concentration in mol/m^3. The remaining elements (X[1:]) are 
+        the aqueous concentrations in each particle in mol/m^3.
+    radii : array of float64
+        Wet radius of each particle in nm.
+    water_volumes : array of float64
+        Array of water volume in each particle in m^3.
+    num_concs : array of float64
+        Number concentration of particles in 1/m^3.
+    molar_mass : float64
+        Molar mass of the condensing species in kg.
+    alpha : float64
+        Condensation coefficient of the condensing species (unitless).
+    Heff : float64
+        Effective Henry's Law coefficient of condensign species in mol/m^3*Pa.
+    T : float64
+        Temperature in Kelvin.
+
+    Returns
+    -------
+    dX_dt : array of float64
+        Change in gas and aqueous concentrations in mol/m^3. The first element (dX_dt[0])
+        corresponds to the change in gas concentration. The remaining elements (dX_dt[1:])
+        correspond to the change in aqueous concentration in each particle. 
+
+    '''
+    dX_dt = np.zeros(X.shape)
+    Cgas = X[0] # mol/m^3
+    Caq = X[1:] # mol/m^3
+    Dg = (1/100**2)*1.9*np.power(molar_mass, (-2/3)) # m^2/s
+    w = np.sqrt((8*R*T)/(np.pi*molar_mass)) # thermal velocity, m/s
+    kmt = np.power((radii**2/(3*Dg))+((4.0*radii)/(3.0*w*alpha)), -1.0) # mass uptake, 1/s
+    dX_dt[1:] = kmt*(Cgas - (Caq/(Heff*R*T))) # mol / m^3 water *s
+    dX_dt[0] = (-1.0*np.sum(dX_dt[1:]*water_volumes*num_concs))#/Cgas # mol / m^3 air    
     
-    dCaq_dt_all=np.zeros(len(Caq_all))    
-        
-    for ii, (Cgas, GasName, molar_mass, alpha, Heff) in enumerate(zip(Cgas_all, gas_names, gas_molec_masses, gas_alphas, gas_Heffs)):
-        
-        if molar_mass>0.0:
-            if GasName == 'IEPOX':
-                
-                dIEPOX_dt = IEPOX_condensation(Caq_all, aq_names, Cgas_all, gas_names, 
-                                                radius, T, S, l_org, inorg_radius, 
-                                                water_volume, molar_mass, alpha) # mol/m^3*s
-                
-                for ii, (aq_name) in enumerate(aq_names):
-                    if aq_name == 'IEPOX':
-                        idx = ii
-                dCaq_dt_all[idx] = dIEPOX_dt
-            
-            else:
-                Dg = (1/100**2)*1.9*np.power(molar_mass, (-2/3)) # m^2/s
-                w = np.sqrt((8*R*T)/(np.pi*molar_mass)) # thermal velocity, m/s
-                kmt = np.power((radius**2/(3*Dg))+((4.0*radius)/(3.0*w*alpha)), -1.0) # mass uptake, 1/s
-                for ii, (aq_name) in enumerate(aq_names):
-                    if aq_name == GasName:
-                        idx = ii
-                Caq = Caq_all[idx]
-                dCaq_dt_all[idx] = kmt*(Cgas - (Caq/(Heff*R*T))) # mol/m^3*s
-      
-    return dCaq_dt_all
+    return dX_dt
 
 
 @nb.njit()
-def IEPOX_condensation(Caq_all, aq_names, Cgas_all, gas_names, radius, T, S, 
-                       l_org, inorganic_radius, water_volume, molar_mass, alpha):
-    
-    dIEPOX_dt = 0
-    
-    for ii, (name) in enumerate(gas_names):
-        if name == 'IEPOX':
-            IEPOX_gas_conc = Cgas_all[ii]
-        
-    for ii, (name) in enumerate(aq_names):
-        if name == 'H2O':
-            H2O_conc = 0.001*Caq_all[ii] # mol/L
-        elif name == 'H+':
-            Hplus_conc = 0.001*Caq_all[ii] # mol/L
-        elif name == 'HSO4':
-            HSO4_conc = 0.001*Caq_all[ii] # mol/L
-        elif name == 'NH4':
-            NH4_conc = 0.001*Caq_all[ii] # mol/L
-        elif name == 'SO4':
-            SO4_conc = 0.001*Caq_all[ii] # mol/L
-    
-    if 'HSO4' not in aq_names:
-        HSO4_conc = 0
-    if 'NH4' not in aq_names:
-        NH4_conc = 0
-    if 'SO4' not in aq_names:
-        SO4_conc = 0
+def IEPOX_condensation(X, H2O_concs, Hplus_concs, HSO4_concs, NH4_concs,
+                       SO4_concs, radii, T, S, l_orgs, inorganic_radii, 
+                       num_concs, water_volumes, molar_mass, alpha):
+
+    dX_dt = np.zeros(X.shape)
+    Cgas = X[0]
     
     kaqs = [1.8e-4, 2.62e-6, 6.2e-8, 1.91e-4]
-    kaq = kaqs[0]*Hplus_conc*H2O_conc + kaqs[1]*HSO4_conc*H2O_conc + kaqs[2]*NH4_conc*H2O_conc + kaqs[3]*Hplus_conc*SO4_conc # 1/s
-    
+    kaq = kaqs[0]*Hplus_concs*H2O_concs + kaqs[1]*HSO4_concs*H2O_concs + kaqs[2]*NH4_concs*H2O_concs + kaqs[3]*Hplus_concs*SO4_concs # 1/s
     Haq=3.0e4*(1000/101325) # mol/m^3 Pa
     
-    V = (4.0/3.0)*np.pi*radius**3 # m^3
-    Ap = 4.0*np.pi*radius**2 # m^2
+    V = (4.0/3.0)*np.pi*radii**3 # m^3
+    Ap = 4.0*np.pi*radii**2 # m^2
     w = np.sqrt((8*R*T)/(np.pi*molar_mass)) # thermal velocity, m/s
     Dg = (1/100**2)*1.9*np.power(molar_mass, (-2/3)) # m^2/s
     Gamma_aq_inv = (4*V*R*T*Haq*kaq)/(Ap*w) # unitless
@@ -89,13 +78,56 @@ def IEPOX_condensation(Caq_all, aq_names, Cgas_all, gas_names, radius, T, S,
     
     Eta_org=6.92448e9*np.exp(-2.48362e1*S) # Pa*s (fit of table S3 in "Effect of the Aerosol-Phase State on Secondary Organic Aerosol Formation from the Reactive Uptake of Isoprene-Derived Epoxydiols (IEPOX)")
     Dorg=(1.380649E-23*T)/(6*np.pi*1e-10*Eta_org)
-    Gamma_org_inv = ((w*l_org)/(4*R*T*Horg*Dorg))*(radius/inorganic_radius)
+    Gamma_org_inv = ((w*l_orgs)/(4*R*T*Horg*Dorg))*(radii/inorganic_radii)
     
-    Gamma_IEPOX = np.power(((w*radius)/(4.0*Dg))+(1/alpha)+Gamma_aq_inv+Gamma_org_inv, -1.0)
-    dIEPOX_dt = (Gamma_IEPOX/4)*Ap*w*IEPOX_gas_conc # mol/s
-            
-    return dIEPOX_dt/water_volume # mol/m^s*s
+    Gamma_IEPOX = np.power(((w*radii)/(4.0*Dg))+(1/alpha)+Gamma_aq_inv+Gamma_org_inv, -1.0)
+    dIEPOX_dt = (Gamma_IEPOX/4)*Ap*w*Cgas # mol/s
+    dX_dt[1:] = dIEPOX_dt/water_volumes # mol / m^3 water *s
+    dX_dt[0] = (-1.0*np.sum(dX_dt[1:]*water_volumes*num_concs))#/Cgas # mol / m^3 air   
+      
+    return dX_dt # mol/m^3*s
 
+@nb.njit()
+def dCaq_dt_diffusion_limited(X, radii, water_volumes, num_concs, molar_mass, alpha, T, P):
+    
+    dX_dt = np.zeros(X.shape)
+    Cgas = X[0] # mol/m^3
+    Dg = (1/100**2)*1.9*np.power(molar_mass, (-2/3)) # m^2/s
+    beta = beta_FS(radii, T, P, alpha)
+    dX_dt[1:] = ((3.0*Dg)/radii**2)*beta*Cgas # mol / m^3 water *s
+    dX_dt[0] = (-1.0*np.sum(dX_dt[1:]*water_volumes*num_concs))#/Cgas # mol / m^3 air 
+    
+    return dX_dt
+    
+   
+@nb.njit()
+def beta_FS(r, T, P, alpha, kB=1.380649e-23, d_air=0.365e-9):
+     """
+     Calculate the Fuchs–Sutugin correction factor beta_FS.
+    
+     Parameters
+     ----------
+     r : float
+         Droplet radius in meters.
+     T : float, optional
+         Temperature in K (default = 298.15 K).
+     P : float, optional
+         Pressure in Pa (default = 101325 Pa).
+     alpha : float, optional
+         Mass accommodation coefficient (0 < alpha <= 1, default = 1.0).
+    
+     Returns
+     -------
+     beta : float
+         Fuchs–Sutugin correction factor.
+     """
+     lambda_air = (kB * T) / (np.sqrt(2) * np.pi * d_air**2 * P) # mean free path, m
+     Kn = lambda_air / r # Knudsen number
+     beta = (1 + Kn) / (1 + (4/(3*alpha) + 0.377)*Kn + (4/(3*alpha))*Kn**2) # Fuchs–Sutugin correction
+
+     return beta 
+    
+    
 
 # def cocondensation_wrapper(t, Caq_all, Cgas_all, radius, T, TraceGas_population):
 #     dC_dt_aq = dCaq_dt(Caq_all, Cgas_all, radius, T, TraceGas_population)

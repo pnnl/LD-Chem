@@ -6,20 +6,16 @@ simulation scenarios.
 
 from dataclasses import dataclass
 import numpy as np
-from scipy.interpolate import interp1d
 from particles import ParticlePopulation
 from particles import make_particle
 from TraceGases import retrieve_gas_species
 from TraceGases import TraceGasPopulation
-# from Reactions import retrieve_eq_reactions, retrieve_aq_species, AqueousPopulation
-from Reactions import Reaction, AqueousReactions
+from Reactions import AqReaction, GasReaction, AqueousReactions, GasReactions
 from processes.water_uptake import equilibrate_water
 from aerosol_species import retrieve_one_species
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Optional
 import mat73, sys, pickle, warnings
 from scipy.special import erfinv
-from systems import Processes
-import matplotlib.pyplot as plt
 import scipy.optimize as opt
 
 @dataclass
@@ -318,8 +314,8 @@ def create_les_scenario(les_trajectory_file,
             mass_fractions=np.array([1.]),
             gas_names=None, gas_data=None,
             dt=None, specdata_path='../species_data/',
-            mechanism_data_path='../mechamisms/',
-            chemistry=None, cocondensation=False):
+            mechanism_data_path='../mechanisms/',
+            aq_chemistry=None, gas_chemistry=None, cocondensation=False):
     
     # set up the S, T, and P drivers
     LES_data = pickle.load(open(les_trajectory_file, 'rb'))
@@ -331,24 +327,35 @@ def create_les_scenario(les_trajectory_file,
     aerosol_population=None
     
     if cocondensation and gas_names:
-        gas_conc=np.zeros(len(gas_names))
+        gas_conc=[]
         for ii, (gas) in enumerate(gas_names):
             if LES_data['z'][0] < np.min(gas_data[gas]['alt']):
                 f = lambda x, a, b: a*x**b
                 params, covariance = opt.curve_fit(f, gas_data[gas]['alt'][:2], gas_data[gas]['ppb'][:2], p0=[1, 0.1])
-                gas_conc[ii]=f(LES_data['z'][0], params[0], params[1])
+                gas_conc.append(f(LES_data['z'][0], params[0], params[1]))
             elif LES_data['z'][0] > np.max(gas_data[gas]['alt']):
                 f = lambda x, a, b: a*x**b
                 params, covariance = opt.curve_fit(f, gas_data[gas]['alt'][-2:], gas_data[gas]['ppb'][-2:], p0=[1, 0.1])
-                gas_conc[ii]=f(LES_data['z'][0], params[0], params[1])
+                gas_conc.append(f(LES_data['z'][0], params[0], params[1]))
             else:
-                gas_conc[ii]=np.interp(LES_data['z'][0], xp=gas_data[gas]['alt'], fp=gas_data[gas]['ppb'])
-        TraceGas_population = make_TraceGas_population(gas_names, gas_conc, specdata_path=specdata_path)
+                gas_conc.append(np.interp(LES_data['z'][0], xp=gas_data[gas]['alt'], fp=gas_data[gas]['ppb']))
+        if gas_chemistry:
+            gas_reactions = make_GasReactions(mechanism_data_path=mechanism_data_path)
+            for reaction in gas_reactions.reactions:
+                for reactant in reaction.reactants:
+                    if reactant not in gas_names and reactant not in ['H2O', 'O2', 'N2', 'M']:
+                        gas_names.append(reactant)
+                        gas_conc.append(0.0)
+                for product in reaction.products:
+                    if product not in gas_names and product not in ['H2O', 'O2', 'N2', 'M']:
+                        gas_names.append(product)
+                        gas_conc.append(0.0)
+        TraceGas_population = make_TraceGas_population(gas_names, np.array(gas_conc), specdata_path=specdata_path)
     else:
         TraceGas_population=None
     
-    if chemistry:
-        aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+    if aq_chemistry:
+        aq_reactions = make_AqReactions(chemistry=aq_chemistry, mechanism_data_path=mechanism_data_path)
     else:
         aq_reactions = None
     
@@ -724,10 +731,44 @@ def make_AqReactions(chemistry=None, mechanism_data_path='../mechanisms/'):
                     if group in chemistry:
                         reactants=reactants.split(',')
                         products=products.split(',')
-                        OneReaction = Reaction(reactants=reactants,
-                                               products=products,
-                                               rate0=float(rate),
-                                               neg_dH_R=float(dH_R))
+                        OneReaction = AqReaction(reactants=reactants,
+                                                 products=products,
+                                                 rate0=float(rate),
+                                                 neg_dH_R=float(dH_R))
+                        reactions[ii]=OneReaction
+                        ids[ii]=ii
+                        ii+=1 
+    else:
+        reactions = None
+        ids = None
+    return AqueousReactions(reactions=reactions, ids=ids)
+
+
+def make_GasReactions(chemistry=None, mechanism_data_path='../mechanisms/'):
+    reaction_datafile = mechanism_data_path + 'gas_reactions.dat'
+    Nreactions=0
+    with open(reaction_datafile) as data_file:
+        for line in data_file:
+            reactants,products,rate,highP_limit,T_dependence,form = line.split()
+            Nreactions+=1
+    Nreactions-=1 # gets rid of the header
+    if Nreactions > 0: 
+        reactions = [None]*Nreactions
+        ids = [None]*Nreactions
+        ii=0
+        while ii < Nreactions:
+            with open(reaction_datafile) as data_file:
+                for line in data_file:
+                    reactants,products,rate,highP_limit,T_dependence,form = line.split()
+                    if form in ['power', 'exp', 'troe']:
+                        reactants=reactants.split(',')
+                        products=products.split(',')
+                        OneReaction = GasReaction(reactants=reactants,
+                                                  products=products,
+                                                  rate0=float(rate),
+                                                  high_P_limit=float(highP_limit),
+                                                  T_dependence=float(T_dependence),
+                                                  form=str(form))                        
                         reactions[ii]=OneReaction
                         ids[ii]=ii
                         ii+=1 
@@ -735,7 +776,8 @@ def make_AqReactions(chemistry=None, mechanism_data_path='../mechanisms/'):
     else:
         reactions = None
         ids = None
-    return AqueousReactions(reactions=reactions, ids=ids)
+        
+    return GasReactions(reactions=reactions, ids=ids)
 
 
 # def make_AqSpecies(aq_reactions, specdata_path='../species_data/'):
