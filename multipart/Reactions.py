@@ -11,6 +11,7 @@ from typing import Tuple
 import numpy as np
 import sys
 import constants as c
+from processes.air_thermo import H2O_gas_conc, es
 
 @dataclass(frozen=True)
 class AqReaction:
@@ -38,23 +39,34 @@ class GasReaction:
     T_dependence: float
     form: str
     
-    def get_rate(self, T, P):
+    def get_rate(self, S, T, P):
         # returns rate at a given temperature
         if self.form == 'power':
             return self.rate0*(T/300)**self.T_dependence
         elif self.form == 'exp':
             return self.rate0*np.exp(self.T_dependence/T)
         elif self.form == 'troe':
-            k0 = self.rate0*(T/300)**self.T_dependence
+            
+            X_H2O = (S*es(T-273.15))/P
+            
+            k0_N2 = self.rate0*(T/300)**self.T_dependence
+            k0_H2O = 1.65e-32*3.63e35*(T/300)**(-4.9)
+            k0_mix = (1-X_H2O)*k0_N2+X_H2O*k0_H2O
             k_inf = self.high_P_limit
             M = P/(c.R*T)
-            Pr = (k0*M)/k_inf
-            logFc = np.log10(0.41)
+            Pr = (k0_mix*M)/k_inf
+            logFc = np.log10(0.58)
             N = 0.75 - 1.27 * logFc
             logPr = np.log10(Pr)
             denom = 1.0 + (logPr / N)**2
             F = 10.0**(logFc / denom)
-            return (k0*M*F)/(1+Pr)
+            return (F*k0_mix*M)/(1+((k0_mix*M)/k_inf))
+        elif self.form == 'HO2_water_enhancement':
+            H2O_conc = H2O_gas_conc(S,T,P)
+            N2_conc = 0.7808*((P/(c.R*T))-H2O_conc)
+            k1 = 1.32e5*np.exp(600/T)
+            k2 = 6.9e2*N2_conc*np.exp(980/T)
+            return (k1+k2)*(1.0+8.4e-4*H2O_conc*np.exp(2200/T))
             
             
 

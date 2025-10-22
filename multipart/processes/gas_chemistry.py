@@ -13,7 +13,7 @@ import constants as c
 
 # R = 8.314 # m^3*Pa/mol*K
 
-#@nb.njit()
+@nb.njit()
 def dCgas_dt(Cgas_0, reactants_all, products_all, rates, gas_names, T, P):
     
     dCgas_dt_all = np.zeros(len(Cgas_0))
@@ -27,12 +27,14 @@ def dCgas_dt(Cgas_0, reactants_all, products_all, rates, gas_names, T, P):
         
         dCgas = rate
         for reactant in reactants:
+            idx = 10000
             for jj, (name) in enumerate(gas_names):
                 if name == reactant:
                     idx = jj
             dCgas *= Cgas_0[idx] # mol/L/s
             
         for reactant in reactants:
+            idx = 10000
             for jj, (name) in enumerate(gas_names):
                 if name == reactant:
                     idx = jj
@@ -43,7 +45,7 @@ def dCgas_dt(Cgas_0, reactants_all, products_all, rates, gas_names, T, P):
                 if name == product:
                     idx = jj
             dCgas_dt_all[idx]+=dCgas # mol/m^3/s
-         
+        
     return dCgas_dt_all # mol/m^3/s
 
 

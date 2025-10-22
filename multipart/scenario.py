@@ -12,10 +12,12 @@ from TraceGases import retrieve_gas_species
 from TraceGases import TraceGasPopulation
 from Reactions import AqReaction, GasReaction, AqueousReactions, GasReactions
 from processes.water_uptake import equilibrate_water
+from processes.air_thermo import H2O_gas_conc
 from aerosol_species import retrieve_one_species
 from typing import Tuple, Optional
 import mat73, sys, pickle, warnings
 from scipy.special import erfinv
+import constants as c
 import scipy.optimize as opt
 
 @dataclass
@@ -350,6 +352,14 @@ def create_les_scenario(les_trajectory_file,
                     if product not in gas_names and product not in ['H2O', 'O2', 'N2', 'M']:
                         gas_names.append(product)
                         gas_conc.append(0.0)
+            H2O_conc = H2O_gas_conc(LES_data['s'][0],LES_data['T'][0],LES_data['P'][0]) # mol/m^3
+            N2_conc = 0.7808*((LES_data['P'][0]/(c.R*LES_data['T'][0]))-H2O_conc) # mol/m^3
+            O2_conc = 0.2095*((LES_data['P'][0]/(c.R*LES_data['T'][0]))-H2O_conc) # mol/m^3
+            gas_names.append('N2')
+            gas_conc.append(1e9*N2_conc*((c.R*LES_data['T'][0])/LES_data['P'][0]))
+            gas_names.append('O2')
+            gas_conc.append(1e9*O2_conc*((c.R*LES_data['T'][0])/LES_data['P'][0]))
+    
         TraceGas_population = make_TraceGas_population(gas_names, np.array(gas_conc), specdata_path=specdata_path)
     else:
         TraceGas_population=None
@@ -587,8 +597,11 @@ def molecules_to_fracs(molecule_name,molecule_fraction=1.,specdata_path='../spec
         ion_names = ['Na','Cl']
         num_ions_per_molecule = [1,1]
     elif molecule_name == 'AS':
-        ion_names = ['NH4','SO4']
-        num_ions_per_molecule = [2,1]
+        ion_names = ['SO4','NH4']
+        num_ions_per_molecule = [1,2]
+    elif molecule_name == 'AN':
+        ion_names = ['NO3','NH4']
+        num_ions_per_molecule = [1,1]
     elif molecule_name == 'ABS':
         ion_names = ['NH4','HSO4']
         num_ions_per_molecule = [1,1]
@@ -760,7 +773,7 @@ def make_GasReactions(chemistry=None, mechanism_data_path='../mechanisms/'):
             with open(reaction_datafile) as data_file:
                 for line in data_file:
                     reactants,products,rate,highP_limit,T_dependence,form = line.split()
-                    if form in ['power', 'exp', 'troe']:
+                    if form in ['power', 'exp', 'troe', 'HO2_water_enhancement']:
                         reactants=reactants.split(',')
                         products=products.split(',')
                         OneReaction = GasReaction(reactants=reactants,

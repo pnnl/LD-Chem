@@ -6,7 +6,6 @@ Created on Wed Oct  2 10:33:11 2024
 @author: beel083
 """
 import numpy as np
-import sys
 import numba as nb
 
 R = 8.314 # m^3*Pa/mol*K
@@ -56,7 +55,7 @@ def dCaq_dt(X, radii, water_volumes, num_concs, molar_mass, alpha, Heff, T):
     return dX_dt
 
 
-@nb.njit()
+#@nb.njit()
 def IEPOX_condensation(X, H2O_concs, Hplus_concs, HSO4_concs, NH4_concs,
                        SO4_concs, radii, T, S, l_orgs, inorganic_radii, 
                        num_concs, water_volumes, molar_mass, alpha):
@@ -73,6 +72,8 @@ def IEPOX_condensation(X, H2O_concs, Hplus_concs, HSO4_concs, NH4_concs,
     w = np.sqrt((8*R*T)/(np.pi*molar_mass)) # thermal velocity, m/s
     Dg = (1/100**2)*1.9*np.power(molar_mass, (-2/3)) # m^2/s
     Gamma_aq_inv = (4*V*R*T*Haq*kaq)/(Ap*w) # unitless
+    
+    
     
     Horg=1.0e3*(1000/101325) # mol/m^3 Pa
     

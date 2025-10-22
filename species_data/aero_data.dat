@@ -1,8 +1,8 @@
-#     dens (kg/m^3)   ions in soln (1)    molec wght (kg/mole)   kappa (1)
+#     dens (kg/m^3)   ions in soln (1)    molec wght (kg/mole)    kappa (1)
 SO4            1800                0                   96d-3      0.65
 NO3            1800                0                   62d-3      0.65
 Cl             2200                0                   35.5d-3    0.53
-NH4            1800                0                   18d-3      0.65
+NH4            1800                0                   18d-3      0
 MSA            1800                0                   95d-3      0.53
 ARO1           1400                0                   150d-3     0.1
 ARO2           1400                0                   150d-3     0.1
@@ -30,7 +30,7 @@ HNO3           0                   0                   63d-3      0
 IEPOX          0                   0                   118d-3     0
 tetrol         1500                0                   136d-3     0.18
 tetrol_olig    1500                0                   254d-3     0.18
-IEPOX_OS       1500                0                   216d-3     0.25
+IEPOX_OS       1500                0                   215d-3     0.25
 IEPOX_OH_SOA   1500                0                   84.4d-3    0.18
 O2             0                   0                   32d-3      0
 O2-            0                   0                   32d-3      0
@@ -40,5 +40,13 @@ NO2-           0                   0                   46d-3      0
 HNO2           0                   0                   47d-3      0
 OHrad          0                   0                   17d-3      0
 OH             0                   0                   17d-3      0
+OH-            0                   0                   17d-3      0
 HO2            0                   0                   33d-3      0
 NO             0                   0                   30e-3      0
+NH3            0                   0                   17e-3      0
+HONO           0                   0                   47e-3      0
+N2O5           0                   0                   108e-3     0
+HNO4           0                   0                   79e-3      0
+CO             0                   0                   28e-3      0
+CO2            0                   0                   44e-3      0
+ISOP           0                   0                   68e-3      0

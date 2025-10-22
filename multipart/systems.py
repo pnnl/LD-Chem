@@ -31,7 +31,6 @@ from assimulo.solvers import CVode
 from scipy.integrate import ode
 from scipy.optimize import fminbound
 
-from copy import copy, deepcopy
     
 # should this be in here?
 @dataclass
@@ -79,7 +78,17 @@ class ParcelState:
                 sizes=np.append(sizes, r)
                 Ns=np.append(Ns, num_conc)
         
-        return np.sum(Ns)/np.sum(particle_population.num_concs)  
+        return np.sum(Ns)/np.sum(particle_population.num_concs)
+    
+    def clone_detached(self):
+        return ParcelState(
+            x=self.x, y=self.y, z=self.z,
+            u=self.u, v=self.v, w=self.w,
+            S=self.S, P=self.P, T=self.T,
+            particle_population=self.particle_population.clone_detached(),
+            TraceGas_population=(None if self.TraceGas_population is None
+                                 else self.TraceGas_population.clone_detached())
+        )
     
     
 @dataclass
@@ -226,9 +235,9 @@ def update_state(t1, t2,
     #         print(spec.name, particle.masses[particle.get_species_idx(spec.name)])
     #     print()
     
-    ParcelState_2 = update_air(t2,
-        ParcelState_1, processes, feedbacks_1, dt, 
-        verbosity=verbosity, solver=solver, gas_reactions=gas_reactions)
+    # ParcelState_2 = update_air(t2,
+    #     ParcelState_1, processes, feedbacks_1, dt, 
+    #     verbosity=verbosity, solver=solver, gas_reactions=gas_reactions, rtol=rtol, atol=atol)
     
     # print('After gases change:')
     # for gas, conc in zip(ParcelState_2.TraceGas_population.gases, ParcelState_2.TraceGas_population.concs):
@@ -241,7 +250,8 @@ def update_state(t1, t2,
     
     # sys.exit()
     
-    ParcelState_next = replace(ParcelState_2)
+    # ParcelState_next = replace(ParcelState_2)
+    ParcelState_next = replace(ParcelState_1)
     return ParcelState_next
 
 
@@ -261,17 +271,18 @@ def update_particle_population(
     wv0 = air_thermo.S_to_wv(S0,T0,P0)
     dwc_dt = 0.
     
-    ParcelState_Next = deepcopy(ParcelState_0) # maybe??
+    
+    #ParcelState_Next = deepcopy(ParcelState_0) # maybe??
+    ParcelState_Next = ParcelState_0.clone_detached()
     
     # water condensation   
     if processes.condensation:
         water_masses_next=water_condensation_solver(ParcelState_Next.particle_population, P0, T0, S0, wv0, accom, processes, radius_scale, solver, verbosity, dt)
-        for ii,(particle,num_conc) in enumerate(zip(ParcelState_Next.particle_population.particles,ParcelState_Next.particle_population.num_concs)):
-            particle_temp=deepcopy(particle)
-            particle_temp.masses[particle_temp.idx_h2o]=water_masses_next[ii]
-            m_h2o_0 = particle.get_mass_h2o()
-            m_h2o_next = particle_temp.get_mass_h2o()
-            dwc_dt += num_conc*(m_h2o_next - m_h2o_0) # mass of water to particle phase, kg/m^3          
+        for ii,(old_particle, new_particle, num_conc) in enumerate(zip(ParcelState_0.particle_population.particles, ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs)):
+            new_particle.masses[new_particle.idx_h2o]=water_masses_next[ii]
+            m_h2o_0 = old_particle.get_mass_h2o()
+            m_h2o_next = new_particle.get_mass_h2o()
+            dwc_dt += num_conc*(m_h2o_next - m_h2o_0) # mass of water to particle phase, kg/m^3
     else:
         water_masses_next=np.zeros(len(ParcelState_0.particle_population.particles))
         for ii, (particle) in enumerate(ParcelState_0.particle_population.particles):
@@ -313,10 +324,10 @@ def water_condensation_solver(particle_population, P, T, S, wv, accom, processes
     r_drys=[]
     tkappas=[]
     r0s=[]
-    for particle in particle_population.particles:  
+    for particle in particle_population.particles:
         r_drys.append(particle.get_Ddry()/2.)
         tkappas.append(particle.get_tkappa())
-        r0s.append(particle.get_Dwet()/2.)        
+        r0s.append(particle.get_Dwet()/2.)
   
     r_drys=np.array((r_drys))
     tkappas=np.array((tkappas))
@@ -334,9 +345,7 @@ def water_condensation_solver(particle_population, P, T, S, wv, accom, processes
             sim.verbosity = verbosity
             output=sim.simulate(dt)
             r_nexts = np.exp(output[1][-1,:])
-            
-            
-            
+
         elif solver == 'ode15s':
             ode15s = ode(water_uptake.water_uptake_wrapper).set_integrator('lsoda', method='bdf', rtol=1E-6, atol=1E-12, nsteps=5000)
             ode15s.set_initial_value(lnr0s, t0).set_f_params(r_drys, tkappas, P, T, S, accom, radius_scale)
@@ -355,7 +364,7 @@ def water_condensation_solver(particle_population, P, T, S, wv, accom, processes
             
         elif solver == 'ode15s':
             ode15s = ode(water_uptake.water_uptake_wrapper).set_integrator('lsoda', method='bdf', 
-                                                  rtol=1E-6, atol=1E-16, nsteps=5000)
+                                                  rtol=1E-6, atol=1E-12, nsteps=5000)
             ode15s.set_initial_value(r0s, t0).set_f_params(r_drys, tkappas, P, T, S, accom, radius_scale)
             r_nexts=ode15s.integrate(ode15s.t+dt)     
     
@@ -373,7 +382,7 @@ def cocondensation_solver(particle_population, gas_population, P, T, S,
                           dt=1.0, solver='CVODE', verbosity=50, 
                           atol=1e-10, rtol=1e-10):
     
-    ParticlePopulation_Next=deepcopy(particle_population)
+    ParticlePopulation_Next=particle_population.clone_detached()
     gas_feedback=GasFeedback(names=[], dc_dts=[])
     
     for gas, gas_ppb in zip(gas_population.gases, gas_population.concs):
@@ -428,18 +437,13 @@ def cocondensation_solver(particle_population, gas_population, P, T, S,
                     l_orgs[ii] = radius-h2o_NonOrg_radius # m
                     inorganic_radii[ii] = inorg_radius
                 
-                rhs = lambda t, X: cocondensation.IEPOX_condensation(X, H2O_concs, Hplus_concs, 
+                rhs = lambda t, X: cocondensation.IEPOX_condensation(X, H2O_concs, Hplus_concs,
                                                                      HSO4_concs, NH4_concs,
                                                                      SO4_concs, radii, T, S,
                                                                      l_orgs, inorganic_radii, 
                                                                      np.array(particle_population.num_concs), 
                                                                      water_volumes, 
                                                                      gas.molar_mass, gas.alpha)
-            elif gas.name in ['HNO3', 'H2SO4']:
-                rhs = lambda t, X: cocondensation.dCaq_dt_diffusion_limited(X, radii, water_volumes,
-                                                                            np.array(particle_population.num_concs), 
-                                                                            gas.molar_mass, gas.alpha, 
-                                                                            T, P)
             else:
                 rhs = lambda t, X: cocondensation.dCaq_dt(X, radii, water_volumes,
                                                           np.array(particle_population.num_concs), 
@@ -481,7 +485,7 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
                      dt=1.0, solver='CVODE', verbosity=50, 
                      atol=1e-10, rtol=1e-10):
     
-    ParticlePopulation_Next = deepcopy(particle_population)
+    ParticlePopulation_Next = particle_population.clone_detached()
     
     for particle_0, new_particle in zip(particle_population.particles, ParticlePopulation_Next.particles):
         
@@ -515,7 +519,7 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
     
         # define function    
         rhs = lambda t, X: aqueous_chemistry.dCaq_dt(X, reactants, products, rates, 
-                                                     aq_names, T)      
+                                                     aq_names, T)
         
         # solve
         if solver == 'CVODE': 
@@ -528,6 +532,9 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
             X_next=output[1][-1] # mol/m^3
             
         elif solver == 'ode15s':
+            
+            rhs(0.0, X0)
+            
             ode15s = ode(rhs).set_integrator('lsoda', method='bdf',
                                               rtol=rtol, atol=atol, nsteps=5000)
             ode15s.set_initial_value(X0, 0.0)
@@ -544,13 +551,14 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
             idx=new_particle.get_species_idx(species)
             molar_mass=new_particle.species[idx].molar_mass
             new_particle.masses[idx] = Caq*water_volume*molar_mass # kg
-       
+            
     return ParticlePopulation_Next
 
 
 def update_air(t2, ParcelState_0, processes, feedbacks, dt, 
                verbosity=50,C0=3.,accom=0.3,solver='CVODE',
-               updraft_velocity=None, gas_reactions=None):
+               updraft_velocity=None, gas_reactions=None,
+               rtol=1e-10, atol=1e-10):
     
     T0 = ParcelState_0.T
     P0 = ParcelState_0.P
@@ -574,7 +582,7 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
     else:
         ds_turb = 0.
 
-    ParcelState_next = deepcopy(ParcelState_0) # maybe??
+    ParcelState_next = ParcelState_0.clone_detached()
     
     if processes.condensation:
         state0 = np.array([z0,T0,P0,S0,wv0])
@@ -584,8 +592,8 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
                     state, updraft_velocity, feedbacks.dwc_dt, feedbacks.dwi_dt)
                 prob = Explicit_Problem(rhs, state0)
                 sim = CVode(prob)
-                sim.atol=1.0e-15
-                sim.rtol=1.0e-15
+                sim.atol=atol
+                sim.rtol=rtol
                 sim.verbosity=verbosity
                 state_next=sim.simulate(dt)
                 dz_dt = state_next[1][-1][0]-z0
@@ -596,7 +604,7 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
                 
             elif solver == 'ode15s':
                 ode15s = ode(air_thermo.dstate_dt_wrapper).set_integrator('lsoda', method='bdf',
-                                                      rtol=1E-6, atol=1E-12, nsteps=5000)
+                                                      rtol=rtol, atol=atol, nsteps=5000)
                 ode15s.set_initial_value(state0, t0).set_f_params(updraft_velocity, feedbacks.dwc_dt, feedbacks.dwi_dt)
                 state_next = ode15s.integrate(ode15s.t+dt)
                 dz_dt = state_next[0]-z0
@@ -627,25 +635,23 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
                 dppb_dt = feedbacks.gases.dc_dts[ii]
                 TraceGas_idx = ParcelState_next.TraceGas_population.get_species_idx(gas)
                 ParcelState_next.TraceGas_population.concs[TraceGas_idx] += dppb_dt
-    
+    '''
     if processes.gas_chemistry:
         P = ParcelState_0.P
         T = ParcelState_0.T
         S = ParcelState_0.S
         
         # set up the initial gas concentrations
-        X0 = np.zeros(len(ParcelState_0.TraceGas_population.gases)+3)
+        X0 = np.zeros(len(ParcelState_0.TraceGas_population.gases)+2)
         gas_names = Dict.empty(key_type=types.unicode_type, value_type=types.int32)
         for ii, (species, gas_ppb) in enumerate(zip(ParcelState_0.TraceGas_population.gases, ParcelState_0.TraceGas_population.concs)):
             gas_names[species.name]=ii
             X0[ii]=(gas_ppb*1e-9*P)/(c.R*T) # mol/m^3
-        X0[ii+1]=0.2095*(P/(c.R*T)) # O2 conc
-        gas_names['O2']=ii+1
-        X0[ii+2]=0.7808*(P/(c.R*T)) # N2 conc
-        gas_names['N2']=ii+2
-        X0[ii+3]=H2O_gas_conc(S,T,P) # water vapor conc
-        gas_names['H2O']=ii+3
-        
+        X0[ii+1]=H2O_gas_conc(S,T,P) # water vapor conc
+        gas_names['H2O']=ii+1
+        X0[ii+2]=P/(c.R*T)
+        gas_names['M']=ii+2
+
         # set up an array of reactants and products that
         # can be passed into njit function
         reactants = Dict.empty(key_type=types.int32, value_type=types.string)
@@ -664,7 +670,7 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
             temp=temp.replace(']','')
             temp=temp.replace("'",'')
             products[ii]=temp
-            rates=np.append(rates, reaction.get_rate(T, P))  
+            rates=np.append(rates, reaction.get_rate(S, T, P))
         
         # define function    
         rhs = lambda t, X: gas_chemistry.dCgas_dt(X, reactants, products, rates, 
@@ -674,26 +680,29 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
         if solver == 'CVODE': 
             prob = Explicit_Problem(rhs, X0)
             sim = CVode(prob)
-            sim.atol=1e-20
-            sim.rtol=1e-10
+            sim.atol=atol
+            sim.rtol=rtol
             sim.verbosity=verbosity
             output=sim.simulate(dt)
             X_next=output[1][-1] # mol/m^3
             
         elif solver == 'ode15s':
             ode15s = ode(rhs).set_integrator('lsoda', method='bdf',
-                                              rtol=1e-10, atol=1e-20, nsteps=5000)
+                                              rtol=rtol, atol=atol, nsteps=5000)
             
             ode15s.set_initial_value(X0, 0.0)
             X_next = ode15s.integrate(ode15s.t+dt)  # mol/m^3
-        
+            #print(X0[ii+1], X_next[ii+1])
+            #print(X_next[-3]-X0[-3])
+            
         # convert to ppb
         for ii in range(len(ParcelState_0.TraceGas_population.gases)):
             ParcelState_next.TraceGas_population.concs[ii]=X_next[ii]*1e9*((c.R*T)/P)
+        ParcelState_next.S = (X_next[-2]*c.R*T)/water_uptake.es(T-273.15) # S change from chemistry
 
         # do mass balance
         utilities.check_gas_chemistry(ParcelState_0, ParcelState_next)
-
+    '''
     ParcelState_next.z = z0+dz_dt
     ParcelState_next.T = T0+dT_dt
     ParcelState_next.P = P0+dP_dt
@@ -708,7 +717,8 @@ def air_from_les(ParcelState_0, processes, t2, one_trajectory_settings,
                  relaxation_time, dt, solver, gas_data, gas_names, atol, 
                  rtol, verbosity=50):
     
-    ParcelState_Next=deepcopy(ParcelState_0)
+    #ParcelState_Next=deepcopy(ParcelState_0)
+    ParcelState_Next=ParcelState_0.clone_detached()
     t0=0.0
     
     if processes.entrainment:
@@ -759,7 +769,15 @@ def air_from_les(ParcelState_0, processes, t2, one_trajectory_settings,
                     params, covariance = opt.curve_fit(f, gas_data[gas]['alt'][:2], gas_data[gas]['ppb'][:2], p0=[1, 0.1])
                     X_env.append(f(ParcelState_Next.z, params[0], params[1]))
                 else:
-                    X_env.append(np.interp(ParcelState_Next.z, xp=gas_data[gas]['alt'], fp=gas_data[gas]['ppb']))            
+                    X_env.append(np.interp(ParcelState_Next.z, xp=gas_data[gas]['alt'], fp=gas_data[gas]['ppb']))
+                idx = ParcelState_0.TraceGas_population.get_species_idx('N2')
+                if idx:
+                    X0.append(ParcelState_0.TraceGas_population.concs[idx])
+                    X_env.append(1e9*0.7808)
+                idx = ParcelState_0.TraceGas_population.get_species_idx('O2')
+                if idx:
+                    X0.append(ParcelState_0.TraceGas_population.concs[idx])
+                    X_env.append(1e9*0.2095)
             
             rhs = lambda t, X_parcel: (1/relaxation_time)*(X_env-X_parcel)
             if solver == 'CVODE':
@@ -778,7 +796,10 @@ def air_from_les(ParcelState_0, processes, t2, one_trajectory_settings,
                 for ii, gas in enumerate(gas_names):
                     idx = ParcelState_0.TraceGas_population.get_species_idx(gas)
                     ParcelState_Next.TraceGas_population.concs[idx]=X_next[ii]
-
+                for ii, gas in enumerate(['N2', 'O2']):
+                    idx = ParcelState_0.TraceGas_population.get_species_idx(gas)
+                    if idx:
+                        ParcelState_Next.TraceGas_population.concs[idx]=X_next[len(gas_names)+ii]
     else:
         ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
         ParcelState_Next.x = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.x_data)

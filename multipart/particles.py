@@ -145,6 +145,14 @@ class Particle:
         Hplus_conc=(self.masses[idx]/self.species[idx].molar_mass)/water_volume
         return -1.0*np.log10(Hplus_conc)
         
+    def clone_detached(self):
+        # New Particle object; copy arrays you may mutate
+        return Particle(
+            species=self.species,        # shared: treat as immutable metadata
+            masses=self.masses.copy(),   # IMPORTANT: new array, no aliasing
+            idx_h2o=self.idx_h2o,
+        )
+        
     
     
 @dataclass
@@ -156,6 +164,14 @@ class ParticlePopulation:
     num_concs: Tuple[float, ...]
     ids: Tuple[int, ...] # can we make this an optional argument?
     # later... shape parameters?
+    
+    def clone_detached(self):
+        # New ParticlePopulation object; particles are newly cloned
+        return ParticlePopulation(
+            particles=tuple(p.clone_detached() for p in self.particles),
+            num_concs=tuple(self.num_concs),  # safe shallow copy
+            ids=tuple(self.ids),
+        )
     
 
 def retrieve_one_species(name, specdata_path='../species_data/',surface_tension=0.072):

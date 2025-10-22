@@ -289,7 +289,8 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
         print('Running trajectory', output_filename[-10:-4]+',', len(N_concs),'particles...')#, file=f)
         
         counter=0
-        for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+        #for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+        for (t1,t2) in zip(t_eval[:99],t_eval[1:100]):
             steptime0 = time.time()
             
             original_ParcelState = copy.deepcopy(ParcelState_0) # keep this for mole balance at end of time step
@@ -300,7 +301,7 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
                 accom=accom, verbosity=verbosity,
                 mechanism_data_path=mechanism_data_path,
                 aq_reactions=aq_reactions, gas_reactions=gas_reactions,
-                rtol=1e-7, atol=1e-14)
+                rtol=1e-4, atol=1e-8) # 1e-7, 1e-14
             
             # adjust the number concentration based on the new temperature and pressure
             Ns=np.array(ParcelState_0.particle_population.num_concs)
@@ -309,14 +310,14 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
             
             # check that the moles of water in the system is consistent
             # (needs to happen before mass transfer with background)
-            if processes.condensation:
-                utilities.water_mole_balance(original_ParcelState, ParcelState_Next)            
+            #if processes.condensation:
+            #    utilities.water_mole_balance(original_ParcelState, ParcelState_Next)            
             
             # get new air state from LES
             ParcelState_Next=air_from_les(ParcelState_Next, processes, t2, one_trajectory_settings, 
                                           relaxation_time, dt, solver, gas_data, LES_gases, 
                                           rtol=1e-4, atol=1e-8)
-
+            
             # print timestep and time for timestep
             counter+=1
             #with open('RUN_PROGRESS.out', 'a') as f:

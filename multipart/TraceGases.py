@@ -49,6 +49,14 @@ class TraceGasPopulation:
             if self.gases[ii].name == species:
                 return ii
         return idx
+        
+    def clone_detached(self):
+        """Return a copy that shares immutable data but has detached numeric arrays."""
+        return TraceGasPopulation(
+            gases=self.gases,                    # shared: typically immutable metadata
+            concs=self.concs.copy(),             # detached: new NumPy array
+            ids=tuple(self.ids),                 # safe shallow copy
+        )
     
 # @dataclass
 # class AqueousPopulation:
@@ -64,7 +72,7 @@ def retrieve_gas_species(name, specdata_path='../species_data/'):
     gas_datafile = specdata_path + 'gas_data.dat'
     with open(gas_datafile) as data_file:
         for line in data_file:
-            if line.upper().startswith(name.upper()):
+            if name == line.split()[0]:
                 name_in_file,alpha,molar_mass,H0,H_exp = line.split()
     
     return GasSpecies(

@@ -21,9 +21,8 @@ OHrad,O2-            OH,O2                          3.5E7                   720 
 HO2                  O2-,H+                         8.0E3                   0            IEPOX
 O2-,H+               HO2                            5.0E5                   0            IEPOX
 IEPOX,OHrad          IEPOX_OH_SOA                   -999                    0            IEPOX
-NO2,NO2              NO3,H+,H+                      1.0E5                   1500         nitrate
-NO,NO2               NO2-,NO2-,H+,H+                2.0E5                   1500         nitrate
-NO2,OHrad            NO3,H+                         1.2E7                   0            nitrate
-NO2-,O3              NO3,O2                         5.0E3                   6950         nitrate
-HNO3                 NO3,H+                         5.0E5                   0            nitrate
-NO3,H+               HNO3                           5.0E2                   0            nitrate
+NO3                  NH4,OH-                        8.5e0                   -450         ammonium
+NH4,OH-              NO3                            5.0e5                   -450         ammonium
+OH-,H+               H2O                            1.4e8                  -2160         water
+HNO3                 NO3,H+                         5.0e5                  8700          nitrate
+NO3,H+               HNO3                           3.2e4                  8700          nitrate
