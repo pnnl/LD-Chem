@@ -190,7 +190,6 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
     
     #sys.stdout = open('output.log', 'w')
 
-    
     if not les_output_file:
         with open('RUN_PROGRESS.out', 'a') as f:
             print('WARNING: No LES file specified!', file=f)
@@ -245,8 +244,8 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
                 water_volume=particle.get_vol_tot()-particle.get_vol_dry()
                 NO3_conc=(particle.masses[particle.get_species_idx('NO3')]/particle.species[particle.get_species_idx('NO3')].molar_mass)/water_volume
                 Hplus_conc=(particle.masses[particle.get_species_idx('H+')]/particle.species[particle.get_species_idx('H+')].molar_mass)/water_volume
-                HNO3_conc=(NO3_conc*Hplus_conc)/1000.0
-                particle.masses[particle.get_species_idx('HNO3')]=HNO3_conc*particle.species[particle.get_species_idx('HNO3')].molar_mass*water_volume
+                HNO3_conc=(NO3_conc*Hplus_conc)/15.625
+                particle.masses[particle.get_species_idx('HNO3')]=HNO3_conc*particle.species[particle.get_species_idx('HNO3')].molar_mass*water_volume    
     
     # equilibrate the co-condensing species
     # if scenario.trajectories_settings[0].gas0 and processes.cocondensation:
@@ -261,7 +260,7 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
     #                 particle.masses[particle.get_species_idx(gas.name)]=Mx
     
     
-    # particle=scenario.trajectories_settings[0].population0.particles[2]
+    # particle=scenario.trajectories_settings[0].population0.particles[0]
     # for ii, (species) in enumerate(particle.species):
     #     print(species.name, particle.masses[ii])
     # sys.exit()
@@ -289,11 +288,11 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
         print('Running trajectory', output_filename[-10:-4]+',', len(N_concs),'particles...')#, file=f)
         
         counter=0
-        #for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
-        for (t1,t2) in zip(t_eval[:99],t_eval[1:100]):
+        for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+        # for (t1,t2) in zip(t_eval[:99],t_eval[1:100]):
             steptime0 = time.time()
             
-            original_ParcelState = copy.deepcopy(ParcelState_0) # keep this for mole balance at end of time step
+            # original_ParcelState = copy.deepcopy(ParcelState_0) # keep this for mole balance at end of time step
             
             ParcelState_Next = update_state(t1, t2,
                 ParcelState_0, processes, dt,

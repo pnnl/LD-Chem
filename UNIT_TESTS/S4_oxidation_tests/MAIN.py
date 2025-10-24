@@ -65,7 +65,7 @@ pHs=np.linspace(2, 8, 10)
 output_data={'pH': pHs, 'dSO4_dt': {}}
 
 # %% do the ozone runs
-
+'''
 dSO4_dt = simulate_sulfate_oxidation(pHs,
         t_end=120.0, dt=0.5, updraft_velocity=0.0,
         Ddry=96.92e-9, sigma=1.0, Ntot=1e6, Npart=1,
@@ -184,7 +184,7 @@ for label in ax.get_yticklabels():
     label.set_fontsize(axis_tick_fontsize)
 
 fig.savefig('S4_oxidation.png', bbox_inches='tight', dpi=200)
-
+'''
 
 pickle.dump(output_data, open('sulfate_oxidation_data.pkl', 'wb'))
 
@@ -193,14 +193,17 @@ pickle.dump(output_data, open('sulfate_oxidation_data.pkl', 'wb'))
 # directory
 
 for file in files1:
-    os.remove(file)
+    # os.remove(file)
+    print(file)
     
 for file in files2:
-    os.remove(file)
+    # os.remove(file)
+    print(file)
     
 for directory in directories:
     directory = directory.replace('.', '')
     directory = directory.replace('/', '')
     directory = directory.replace('multipart', '')
-    shutil.rmtree(directory)
+    # shutil.rmtree(directory)
+    print(directory)
 

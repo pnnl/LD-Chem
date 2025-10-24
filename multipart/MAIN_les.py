@@ -26,7 +26,7 @@ gas_names = ['SO2', 'O3', 'H2O2', 'NO2', 'IEPOX', 'OH', 'NH3']
 les_output_file = sys.argv[1]+'/parcel_traces_'+les_number+'.pkl'
 #with open('RUN_PROGRESS.out', 'w') as f:
 print('Reading', les_output_file)#, file=f)
-
+'''
 simulate_les_trajectories(les_output_file=les_output_file, output_path=str(sys.argv[2]),
         dt=5.0,diameters=diameters,N_concs=num_concs,
         pHs=pHs, accom=1.0, verbosity=50,
@@ -37,34 +37,39 @@ simulate_les_trajectories(les_output_file=les_output_file, output_path=str(sys.a
         mechanism_data_path='../../mechanisms/',
         condensation = True, collisions = False, settling = False,
         cocondensation = True,  entrainment = True, freezing = False,
-        gas_chemistry = True, aq_chemistry = ['sulfate', 'IEPOX'],
-        relaxation_time = 24.475, write_every=10.0)
+        gas_chemistry = True, aq_chemistry = ['IEPOX','sulfate','nitrate','ammonium'],
+        relaxation_time = 24.475, write_every=30.0)
+'''
 
-
-fig, (ax1, ax2, ax3) = plt.subplots(1,3)
+fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2,2)
 traj=pickle.load(open('trajectory_'+str(les_number)+'.pkl', 'rb'))
-species='IEPOX'
+
 
 # y = 1e9*np.sum(traj['particles'][:,:,np.where(traj['particle species']==species)[0][0]]*traj['particles'][:,:,np.where(traj['particle species']=='num conc')[0][0]], axis=1)
 # y = traj['gases'][:,np.where(traj['gas species']==species)[0][0]]
-y = 1e6*traj['particles'][:,:,np.where(traj['particle species']=='Ddry')[0][0]]
+y = 1e6*traj['particles'][:,:,np.where(traj['particle species']=='Dwet')[0][0]]
 ax1.plot(traj['times'], y)
 ax1.set_yscale('log')
-ax1.set_title('dry diameter')
-
-
-
-ax2.plot(traj['times'], traj['particles'][:,:,np.where(traj['particle species']==species)[0][0]])
-ax2.set_yscale('log')
-ax2.set_title(species)
+ax1.set_title('wet diameter')
 
 water_vol = 1000*traj['particles'][:,:,np.where(traj['particle species']=='H2O')[0][0]]/1000.0 # L
 moles_H = traj['particles'][:,:,np.where(traj['particle species']=='H+')[0][0]]/0.001 # mol
 pH =-1.0*np.log10(moles_H/water_vol)
-ax3.plot(traj['times'], pH)
-ax3.set_title('pH')
+ax2.plot(traj['times'], pH)
+ax2.set_title('pH')
+
+species='SO4'
+ax3.plot(traj['times'], traj['particles'][:,:,np.where(traj['particle species']==species)[0][0]])
+ax3.set_yscale('log')
+ax3.set_title(species)
+
+species='IEPOX_OS'
+ax4.plot(traj['times'], traj['particles'][:,:,np.where(traj['particle species']==species)[0][0]]-traj['particles'][:,:,np.where(traj['particle species']==species)[0][0]][0])
+ax4.set_yscale('log')
+ax4.set_title(species)
 
 plt.show()
+
 
 
 

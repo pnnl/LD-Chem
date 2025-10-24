@@ -96,7 +96,7 @@ def dCaq_dt_diffusion_limited(X, radii, water_volumes, num_concs, molar_mass, al
     Dg = (1/100**2)*1.9*np.power(molar_mass, (-2/3)) # m^2/s
     beta = beta_FS(radii, T, P, alpha)
     dX_dt[1:] = ((3.0*Dg)/radii**2)*beta*Cgas # mol / m^3 water *s
-    dX_dt[0] = (-1.0*np.sum(dX_dt[1:]*water_volumes*num_concs))#/Cgas # mol / m^3 air 
+    dX_dt[0] = (-1.0*np.sum(dX_dt[1:]*water_volumes*num_concs)) # mol / m^3 air 
     
     return dX_dt
     

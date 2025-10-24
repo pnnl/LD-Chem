@@ -215,7 +215,7 @@ def update_state(t1, t2,
     # for gas, conc in zip(ParcelState_0.TraceGas_population.gases, ParcelState_0.TraceGas_population.concs):
     #     print(gas.name, conc)
     # print()
-    # for particle in ParcelState_0.particle_population.particles[2:3]:
+    # for particle in ParcelState_0.particle_population.particles[1:2]:
     #     for spec in particle.species:
     #         print(spec.name, particle.masses[particle.get_species_idx(spec.name)])
     #     print()
@@ -230,28 +230,27 @@ def update_state(t1, t2,
     # for gas, conc in zip(ParcelState_1.TraceGas_population.gases, ParcelState_1.TraceGas_population.concs):
     #     print(gas.name, conc)
     # print()
-    # for particle in ParcelState_1.particle_population.particles[2:3]:
+    # for particle in ParcelState_1.particle_population.particles[1:2]:
     #     for spec in particle.species:
     #         print(spec.name, particle.masses[particle.get_species_idx(spec.name)])
     #     print()
     
-    # ParcelState_2 = update_air(t2,
-    #     ParcelState_1, processes, feedbacks_1, dt, 
-    #     verbosity=verbosity, solver=solver, gas_reactions=gas_reactions, rtol=rtol, atol=atol)
+    ParcelState_2 = update_air(t2,
+        ParcelState_1, processes, feedbacks_1, dt, 
+        verbosity=verbosity, solver=solver, gas_reactions=gas_reactions, rtol=rtol, atol=atol)
     
     # print('After gases change:')
     # for gas, conc in zip(ParcelState_2.TraceGas_population.gases, ParcelState_2.TraceGas_population.concs):
     #     print(gas.name, conc)
     # print()
-    # for particle in ParcelState_2.particle_population.particles[:1]:
+    # for particle in ParcelState_2.particle_population.particles[1:2]:
     #     for spec in particle.species:
     #         print(spec.name, particle.masses[particle.get_species_idx(spec.name)])
     #     print()
     
     # sys.exit()
     
-    # ParcelState_next = replace(ParcelState_2)
-    ParcelState_next = replace(ParcelState_1)
+    ParcelState_next = replace(ParcelState_2)
     return ParcelState_next
 
 
@@ -444,6 +443,11 @@ def cocondensation_solver(particle_population, gas_population, P, T, S,
                                                                      np.array(particle_population.num_concs), 
                                                                      water_volumes, 
                                                                      gas.molar_mass, gas.alpha)
+            elif gas.name in ['HNO3', 'H2SO4']: # these are super soluble and fully dissociate, so treat the concentration at the surface of the particle as = 0.0
+                rhs = lambda t, X: cocondensation.dCaq_dt_diffusion_limited(X, radii, water_volumes,
+                                                                            np.array(particle_population.num_concs), 
+                                                                            gas.molar_mass, gas.alpha, 
+                                                                            T, P)
             else:
                 rhs = lambda t, X: cocondensation.dCaq_dt(X, radii, water_volumes,
                                                           np.array(particle_population.num_concs), 
@@ -487,7 +491,8 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
     
     ParticlePopulation_Next = particle_population.clone_detached()
     
-    for particle_0, new_particle in zip(particle_population.particles, ParticlePopulation_Next.particles):
+    # for particle_0, new_particle in zip(particle_population.particles, ParticlePopulation_Next.particles):
+    for particle_0, new_particle in zip(particle_population.particles[1:], ParticlePopulation_Next.particles[1:]):
         
         # set up the initial aqueous concentrations
         X0 = np.zeros(len(particle_0.species))
@@ -496,7 +501,7 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
         for ii, (species) in enumerate(particle_0.species):
             aq_names[species.name]=ii
             X0[ii]=(particle_0.masses[particle_0.get_species_idx(species.name)]/species.molar_mass)/water_volume # mol/m^3
-    
+        
         # set up an array of reactants and products that
         # can be passed into njit function
         reactants = Dict.empty(key_type=types.int32, value_type=types.string)
@@ -519,7 +524,15 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
     
         # define function    
         rhs = lambda t, X: aqueous_chemistry.dCaq_dt(X, reactants, products, rates, 
-                                                     aq_names, T)
+                                                     aq_names, T) # mol/m^3*s
+        
+        
+        # dX_dt = rhs(0.0, X0)
+        # print()
+        # for kk in aq_names.keys():
+        #     print(kk, X0[aq_names[kk]], dX_dt[aq_names[kk]])
+        # print()
+        # sys.exit()
         
         # solve
         if solver == 'CVODE': 
@@ -532,9 +545,6 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
             X_next=output[1][-1] # mol/m^3
             
         elif solver == 'ode15s':
-            
-            rhs(0.0, X0)
-            
             ode15s = ode(rhs).set_integrator('lsoda', method='bdf',
                                               rtol=rtol, atol=atol, nsteps=5000)
             ode15s.set_initial_value(X0, 0.0)
@@ -770,14 +780,15 @@ def air_from_les(ParcelState_0, processes, t2, one_trajectory_settings,
                     X_env.append(f(ParcelState_Next.z, params[0], params[1]))
                 else:
                     X_env.append(np.interp(ParcelState_Next.z, xp=gas_data[gas]['alt'], fp=gas_data[gas]['ppb']))
-                idx = ParcelState_0.TraceGas_population.get_species_idx('N2')
-                if idx:
-                    X0.append(ParcelState_0.TraceGas_population.concs[idx])
-                    X_env.append(1e9*0.7808)
-                idx = ParcelState_0.TraceGas_population.get_species_idx('O2')
-                if idx:
-                    X0.append(ParcelState_0.TraceGas_population.concs[idx])
-                    X_env.append(1e9*0.2095)
+                
+            idx = ParcelState_0.TraceGas_population.get_species_idx('N2')
+            if idx:
+                X0.append(ParcelState_0.TraceGas_population.concs[idx])
+                X_env.append(1e9*0.7808)
+            idx = ParcelState_0.TraceGas_population.get_species_idx('O2')
+            if idx:
+                X0.append(ParcelState_0.TraceGas_population.concs[idx])
+                X_env.append(1e9*0.2095)
             
             rhs = lambda t, X_parcel: (1/relaxation_time)*(X_env-X_parcel)
             if solver == 'CVODE':

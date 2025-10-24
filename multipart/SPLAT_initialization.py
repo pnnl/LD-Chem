@@ -230,8 +230,8 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
         # sample the mass fraction of species in each particle
         aero_spec_names=[]
         aero_spec_fracs=[]   
-        aero_pHs=[]   
-            
+        aero_pHs=[]  
+                            
         for ii in range(len(ptypes)):
             
             included_species=[]
@@ -271,7 +271,7 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
                         for s, f in zip(mass_fractions[ptypes[ii]][1], incl_fracs):
                             included_mass=np.append(included_mass, total_incl_mass*f)
                             included_species.append(s)            
-                        
+            
             other_species=[]
             for t in mass_thresholds.keys():
                 if t != ptypes[ii]:
@@ -1214,8 +1214,8 @@ splat_species = {'BC': ['soot'],
                   'IEPOX': ['IEPOX_SOA']}
 
 mass_fractions={'IEPOX': [[0.3,0.5,0.1], ['IEPOX_OS','tetrol','tetrol_olig', 'IEPOX_OH_SOA']],
-                'AS': [[0.5,0.7,0.1], ['AS']],
-                'AN': [[0.5,0.7,0.1], ['AN']],
+                'AS': [[0.5,0.7,0.1], ['SO4']],
+                'AN': [[0.5,0.7,0.1], ['NO3']],
                 'OC': [[0.5,0.7,0.1], ['OC']],
                 'BC': [[0.5,0.7,0.1], ['BC']],
                 'OIN': [[0.5,0.7,0.1], ['OIN']]}
