@@ -300,7 +300,7 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
                 accom=accom, verbosity=verbosity,
                 mechanism_data_path=mechanism_data_path,
                 aq_reactions=aq_reactions, gas_reactions=gas_reactions,
-                rtol=1e-4, atol=1e-8) # 1e-7, 1e-14
+                rtol=1e-4, atol=1e-8) # 1e-7, 1e-14            
             
             # adjust the number concentration based on the new temperature and pressure
             Ns=np.array(ParcelState_0.particle_population.num_concs)

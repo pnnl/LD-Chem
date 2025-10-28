@@ -114,19 +114,38 @@ def create_parcel_scenario(
             gas_names=None, gas_conc=None, 
             dt=1.0, specdata_path='../species_data/',
             mechanism_data_path='../mechamisms/',
-            chemistry=None, cocondensation=False):
+            aq_chemistry=None, cocondensation=False, gas_chemistry=False):
 
     if Npart > 1 and sigma == 1.0:
         print('WARNING: Sigma = 1.0 and Npart > 1! Setting Npart to 1 to speed up calculations.')
         Npart = 1
-        
-    if cocondensation:
-        TraceGas_population = make_TraceGas_population(gas_names, gas_conc, specdata_path=specdata_path)
+    
+    if cocondensation and gas_names:
+        if gas_chemistry:
+            gas_reactions = make_GasReactions(mechanism_data_path=mechanism_data_path)
+            for reaction in gas_reactions.reactions:
+                for reactant in reaction.reactants:
+                    if reactant not in gas_names and reactant not in ['H2O', 'O2', 'N2', 'M']:
+                        gas_names.append(reactant)
+                        gas_conc.append(0.0)
+                for product in reaction.products:
+                    if product not in gas_names and product not in ['H2O', 'O2', 'N2', 'M']:
+                        gas_names.append(product)
+                        gas_conc.append(0.0)
+            H2O_conc = H2O_gas_conc(S0,T0,P0) # mol/m^3
+            N2_conc = 0.7808*((P0/(c.R*T0))-H2O_conc) # mol/m^3
+            O2_conc = 0.2095*((P0/(c.R*T0))-H2O_conc) # mol/m^3
+            gas_names.append('N2')
+            gas_conc.append(1e9*N2_conc*((c.R*T0)/P0))
+            gas_names.append('O2')
+            gas_conc.append(1e9*O2_conc*((c.R*T0)/P0))
+    
+        TraceGas_population = make_TraceGas_population(gas_names, np.array(gas_conc), specdata_path=specdata_path)
     else:
         TraceGas_population=None
     
-    if chemistry:
-        aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+    if aq_chemistry:
+        aq_reactions = make_AqReactions(aq_chemistry=aq_chemistry, mechanism_data_path=mechanism_data_path)
     else:
         aq_reactions = None
     
@@ -139,8 +158,8 @@ def create_parcel_scenario(
         if 'H+' not in aero_spec_names:
             aero_spec_names.append('H+')
             aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
-        if 'OHrad' not in aero_spec_names:
-            aero_spec_names.append('OHrad')
+        if 'OH-' not in aero_spec_names:
+            aero_spec_names.append('OH-')
             aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
         
         if np.iterable(Ddry):
@@ -399,8 +418,8 @@ def create_les_scenario(les_trajectory_file,
             if 'H+' not in aero_spec_names:
                 aero_spec_names.append('H+')
                 aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
-            if 'OH' not in aero_spec_names:
-                aero_spec_names.append('OH')
+            if 'OH-' not in aero_spec_names:
+                aero_spec_names.append('OH-')
                 aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
             
             if np.round(np.sum(aero_spec_fracs),9) != 1.0:

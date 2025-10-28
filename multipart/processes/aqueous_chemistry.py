@@ -46,7 +46,7 @@ def dCaq_dt(Caq_0, reactants_all, products_all, rates, aq_names, T):
                     if name == reactant:
                         idx = jj
                 dCaq *= Caq_0[idx] # mol/L/s
-                        
+            
             for reactant in reactants:
                 for jj, (name) in enumerate(aq_names):
                     if name == reactant:
@@ -232,10 +232,11 @@ def HNO2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
     x_SO4 = np.power(1+(Hplus_conc/Keq2)+((Hplus_conc*Hplus_conc)/(Keq1*Keq2)), -1.0)
     
     dS6_dt=k1*HNO2_conc*(SO2_conc+HSO3_conc+SO3_conc)
+        
     dCaq_dt_all[H2SO4_idx]+=1000*x_H2SO4*dS6_dt
     dCaq_dt_all[HSO4_idx]+=1000*x_HSO4*dS6_dt
     dCaq_dt_all[SO4_idx]+=1000*x_SO4*dS6_dt
-    
+        
     return dCaq_dt_all
 
 @nb.njit()
@@ -272,6 +273,9 @@ def O2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
     else:
         k1 = 7.51e13*(Hplus_conc**(0.67))*Mn_conc*Fe_conc
     
+    if SO2_conc+HSO3_conc+SO3_conc==0: # allows the function to not throw NaNs if there is no S(IV) in the particle
+        k1=0
+    
     dCaq_dt_all[SO2_idx]-=1000*k1*SO2_conc
     dCaq_dt_all[HSO3_idx]-=1000*k1*HSO3_conc
     dCaq_dt_all[SO3_idx]-=1000*k1*SO3_conc
@@ -283,6 +287,7 @@ def O2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
     x_SO4 = np.power(1+(Hplus_conc/Keq2)+((Hplus_conc*Hplus_conc)/(Keq1*Keq2)), -1.0)
     
     dS6_dt=k1*(SO2_conc+HSO3_conc+SO3_conc)
+    
     dCaq_dt_all[H2SO4_idx]+=1000*x_H2SO4*dS6_dt
     dCaq_dt_all[HSO4_idx]+=1000*x_HSO4*dS6_dt
     dCaq_dt_all[SO4_idx]+=1000*x_SO4*dS6_dt

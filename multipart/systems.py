@@ -215,10 +215,10 @@ def update_state(t1, t2,
     # for gas, conc in zip(ParcelState_0.TraceGas_population.gases, ParcelState_0.TraceGas_population.concs):
     #     print(gas.name, conc)
     # print()
-    # for particle in ParcelState_0.particle_population.particles[1:2]:
+    # for particle in ParcelState_0.particle_population.particles[10:11]:
     #     for spec in particle.species:
     #         print(spec.name, particle.masses[particle.get_species_idx(spec.name)])
-    #     print()
+    # print()
     
     ParcelState_1, feedbacks_1 = update_particle_population(
         ParcelState_0, processes, dt, 
@@ -226,14 +226,18 @@ def update_state(t1, t2,
         accom=accom, verbosity=verbosity,mechanism_data_path=mechanism_data_path,
         aq_reactions=aq_reactions, rtol=rtol, atol=atol)
     
+    # print()
     # print('After particles change:')
     # for gas, conc in zip(ParcelState_1.TraceGas_population.gases, ParcelState_1.TraceGas_population.concs):
     #     print(gas.name, conc)
     # print()
-    # for particle in ParcelState_1.particle_population.particles[1:2]:
+    # print()
+    # for particle in ParcelState_1.particle_population.particles[10:11]:
     #     for spec in particle.species:
     #         print(spec.name, particle.masses[particle.get_species_idx(spec.name)])
-    #     print()
+    # print()
+    # import sys
+    # sys.exit()
     
     ParcelState_2 = update_air(t2,
         ParcelState_1, processes, feedbacks_1, dt, 
@@ -491,8 +495,7 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
     
     ParticlePopulation_Next = particle_population.clone_detached()
     
-    # for particle_0, new_particle in zip(particle_population.particles, ParticlePopulation_Next.particles):
-    for particle_0, new_particle in zip(particle_population.particles[1:], ParticlePopulation_Next.particles[1:]):
+    for particle_0, new_particle in zip(particle_population.particles, ParticlePopulation_Next.particles):
         
         # set up the initial aqueous concentrations
         X0 = np.zeros(len(particle_0.species))
@@ -501,7 +504,7 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
         for ii, (species) in enumerate(particle_0.species):
             aq_names[species.name]=ii
             X0[ii]=(particle_0.masses[particle_0.get_species_idx(species.name)]/species.molar_mass)/water_volume # mol/m^3
-        
+                
         # set up an array of reactants and products that
         # can be passed into njit function
         reactants = Dict.empty(key_type=types.int32, value_type=types.string)
@@ -526,7 +529,6 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
         rhs = lambda t, X: aqueous_chemistry.dCaq_dt(X, reactants, products, rates, 
                                                      aq_names, T) # mol/m^3*s
         
-        
         # dX_dt = rhs(0.0, X0)
         # print()
         # for kk in aq_names.keys():
@@ -545,37 +547,41 @@ def aq_chemistry_solver(particle_population, aq_reactions, T,
             X_next=output[1][-1] # mol/m^3
             
         elif solver == 'ode15s':
+                        
             ode15s = ode(rhs).set_integrator('lsoda', method='bdf',
                                               rtol=rtol, atol=atol, nsteps=5000)
             ode15s.set_initial_value(X0, 0.0)
             X_next = ode15s.integrate(ode15s.t+dt)  # mol/m^3
+            
+            # print()
+            # for kk in aq_names.keys():
+            #     print(kk, X0[aq_names[kk]], X_next[aq_names[kk]])
+            # print()
+            # sys.exit()
 
-    
         # adjust the OH concentration based on the pH
         Hplus_conc_next=0.001*X_next[np.where(np.array(aq_names)=='H+')[0][0]] # mol/L
         pH_next=-1.0*np.log10(Hplus_conc_next)
         OH_conc = 10**(-14.0+pH_next) # mol/L
-        X_next[np.where(np.array(aq_names)=='OH')[0][0]]=1000*OH_conc
+        X_next[np.where(np.array(aq_names)=='OH-')[0][0]]=1000*OH_conc
     
         for Caq, species in zip(X_next, aq_names):
             idx=new_particle.get_species_idx(species)
             molar_mass=new_particle.species[idx].molar_mass
             new_particle.masses[idx] = Caq*water_volume*molar_mass # kg
-            
+
     return ParticlePopulation_Next
 
 
 def update_air(t2, ParcelState_0, processes, feedbacks, dt, 
                verbosity=50,C0=3.,accom=0.3,solver='CVODE',
-               updraft_velocity=None, gas_reactions=None,
-               rtol=1e-10, atol=1e-10):
+               gas_reactions=None, rtol=1e-10, atol=1e-10):
     
     T0 = ParcelState_0.T
     P0 = ParcelState_0.P
     S0 = ParcelState_0.S # put this into gas mixture?   
     z0 = ParcelState_0.z
     wv0 = air_thermo.S_to_wv(S0,T0,P0)
-    t0 = 0.0
     
     dz_dt=0
     dT_dt=0
@@ -588,7 +594,7 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
             r = ParcelState_0.population.particles[0].get_Dwet()/2.
             N = ParcelState_0.population.particles[0].num_conc
             ds_turb = fluctuations.ds_fluctuation(
-                S0-1.,dt,T0,P0,r,N,V=updraft_velocity,C0=C0,accom=accom)
+                S0-1.,dt,T0,P0,r,N,V=ParcelState_0.w,C0=C0,accom=accom)
     else:
         ds_turb = 0.
 
@@ -597,9 +603,10 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
     if processes.condensation:
         state0 = np.array([z0,T0,P0,S0,wv0])
         if ParcelState_0.w:
+            
+            rhs = lambda t, state: air_thermo.dstate_dt(state, ParcelState_0.w, feedbacks.dwc_dt)
+            
             if solver == 'CVODE':
-                rhs = lambda t, state: air_thermo.dstate_dt(
-                    state, updraft_velocity, feedbacks.dwc_dt, feedbacks.dwi_dt)
                 prob = Explicit_Problem(rhs, state0)
                 sim = CVode(prob)
                 sim.atol=atol
@@ -613,18 +620,16 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
                 dwv_dt = state_next[1][-1][4]-wv0
                 
             elif solver == 'ode15s':
-                ode15s = ode(air_thermo.dstate_dt_wrapper).set_integrator('lsoda', method='bdf',
-                                                      rtol=rtol, atol=atol, nsteps=5000)
-                ode15s.set_initial_value(state0, t0).set_f_params(updraft_velocity, feedbacks.dwc_dt, feedbacks.dwi_dt)
+                ode15s = ode(rhs).set_integrator('lsoda', method='bdf',
+                                                 rtol=rtol, atol=atol, nsteps=5000)
+                ode15s.set_initial_value(state0, 0.0)
                 state_next = ode15s.integrate(ode15s.t+dt)
                 dz_dt = state_next[0]-z0
                 dT_dt = state_next[1]-T0
                 dP_dt = state_next[2]-P0
                 dS_dt = state_next[3]-S0+ds_turb
-                dwv_dt = state_next[4]-wv0
-    
+                dwv_dt = state_next[4]-wv0    
         else:
-            
             # assumes that temperature and pressure are constant over time step
             X0 = (S0*water_uptake.es(T0-273.15))/(c.R*T0) # mol/m^3
             X_next = X0 + (feedbacks.dwv_dt/c.Mw) # change in water vapor moles, mol/m^3
@@ -645,7 +650,7 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
                 dppb_dt = feedbacks.gases.dc_dts[ii]
                 TraceGas_idx = ParcelState_next.TraceGas_population.get_species_idx(gas)
                 ParcelState_next.TraceGas_population.concs[TraceGas_idx] += dppb_dt
-    '''
+    
     if processes.gas_chemistry:
         P = ParcelState_0.P
         T = ParcelState_0.T
@@ -712,7 +717,7 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
 
         # do mass balance
         utilities.check_gas_chemistry(ParcelState_0, ParcelState_next)
-    '''
+    
     ParcelState_next.z = z0+dz_dt
     ParcelState_next.T = T0+dT_dt
     ParcelState_next.P = P0+dP_dt

@@ -92,13 +92,18 @@ def water_mole_balance(ParcelState_0, ParcelState_Next):
 def check_mass_balance(original_population, new_population):
     
     Mass_0 = 0.0
-    for particle, num_conc in zip(original_population.particles, original_population.num_concs): 
+    for ii, (particle, num_conc) in enumerate(zip(original_population.particles, original_population.num_concs)): 
         Mass_0+=np.sum(particle.masses)
         
-    Mass_new = 0.0
-    for particle, num_conc in zip(new_population.particles, new_population.num_concs):
-        Mass_new+=np.sum(particle.masses)
     
+    Mass_new = 0.0
+    for ii, (particle, num_conc) in enumerate(zip(new_population.particles, new_population.num_concs)):
+        Mass_new+=np.sum(particle.masses)
+        # for species, mass in zip(particle.species, particle.masses):
+        #     print(species.name, mass)
+        # print()
+    
+    # print()
     # print(Mass_0, Mass_new, abs((Mass_0-Mass_new)/Mass_0), abs(Mass_0-Mass_new))
     # print()
     # import sys

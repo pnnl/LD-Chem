@@ -62,7 +62,7 @@ trajectory_ensemble = simulate_sulfate_partitioning(gas_concentrations,
         specdata_path='species_data/', mechanism_data_path='mechanisms/',
         condensation = True, 
         collisions = False, settling = False,
-        cocondensation = True, chemistry = ['sulfate'], freezing = False)
+        cocondensation = True, aq_chemistry = ['sulfate'], freezing = False)
 
 # UnitTests_visualization.plot_equilibrium_fractions(trajectory_ensemble[0], 'SO2', axis='time')
 

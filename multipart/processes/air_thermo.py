@@ -35,7 +35,7 @@ def es(T):
 ## RHS Derivative callback function
 @nb.njit()
 @auxcc.export("onlyparcel_ode_sys", "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)")
-def dstate_dt(x, V, dwc_dt, dwi_dt):
+def dstate_dt(X0, V, dwc_dt):
     """Calculates the instantaneous time-derivative of the parcel model system.
 
     Given a current state vector `y` of the parcel model, computes the tendency
@@ -78,8 +78,13 @@ def dstate_dt(x, V, dwc_dt, dwi_dt):
 
     """
     # todo: make a decision on RH vs s vs S (and be consistent!)
-    #       How about rh (in fraction), which is the same as saturation ratio, S (right?)
-    z, T, P, S, wv = x 
+    #       How about rh (in fraction), which is the same as saturation ratio, S (right?)    
+        
+    z=X0[0]
+    T=X0[1]
+    P=X0[2]
+    S=X0[3]
+    wv=X0[4]
     
     pv_sat, rho_air, rho_air_dry = compute_thermo_props(T, P, S)
     
@@ -95,6 +100,7 @@ def dstate_dt(x, V, dwc_dt, dwi_dt):
     ## ADIABATIC COOLING
     dT_dt = -c.g * V / c.Cp - c.L * dwv_dt / c.Cp
     dz_dt = V
+    
 
     """ Alternative methods for calculation supersaturation tendency
     # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
@@ -118,6 +124,7 @@ def dstate_dt(x, V, dwc_dt, dwi_dt):
     #dS_dt = dwv_dt*(Ma*P)/(Mw*es(T-273.15)) - S_a*(S_b + S_c)
     """
 
+    
     ## GHAN (2011)
     alpha = (c.g * c.Mw * c.L) / (c.Cp * c.R * (T**2))
     alpha -= (c.g * c.Ma) / (c.R * T)
@@ -125,19 +132,18 @@ def dstate_dt(x, V, dwc_dt, dwi_dt):
     gamma += (c.Mw * c.L * c.L) / (c.Cp * c.R * T * T)
     dS_dt = alpha * V - gamma * dwc_dt
 
-    # x = np.empty(shape=(nr+N_STATE_VARS), dtype='d')
-    dxdt = np.empty_like(x)
-    dxdt[0] = dz_dt
-    dxdt[1] = dT_dt
-    dxdt[2] = dP_dt
-    dxdt[3] = dS_dt
-    dxdt[4] = dwv_dt
+    dX_dt = np.zeros(X0.shape)
+    dX_dt[0] = dz_dt
+    dX_dt[1] = dT_dt
+    dX_dt[2] = dP_dt
+    dX_dt[3] = dS_dt
+    dX_dt[4] = dwv_dt
     
-    return dxdt
+    return dX_dt
 
-def dstate_dt_wrapper(t, x, V, dwc_dt, dwi_dt):
-    dxdt = dstate_dt(x, V, dwc_dt, dwi_dt)
-    return dxdt
+# def dstate_dt_wrapper(t, x, V, dwc_dt, dwi_dt):
+#     dxdt = dstate_dt(x, V, dwc_dt, dwi_dt)
+#     return dxdt
 
 
 # replace functions up there later

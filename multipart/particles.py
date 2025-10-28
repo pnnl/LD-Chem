@@ -213,6 +213,9 @@ def make_particle(D, aero_spec_names, aero_spec_fracs, specdata_path='../species
     if 'H+' not in aero_spec_names:
         aero_spec_names = np.append(aero_spec_names, 'H+')
         aero_spec_fracs = np.append(aero_spec_fracs, 0.0)
+    if 'OH-' not in aero_spec_names:
+        aero_spec_names = np.append(aero_spec_names, 'OH-')
+        aero_spec_fracs = np.append(aero_spec_fracs, 0.0)
     
     AeroSpecs = []
     for name in aero_spec_names:

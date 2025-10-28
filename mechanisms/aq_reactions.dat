@@ -14,7 +14,7 @@ S(IV),HNO2           S(VI)                          -999                    0   
 S(IV),O2             S(VI)                          -999                    0            sulfate
 IEPOX,H2O,H+         tetrol,H+                      1.0E-8                  0            IEPOX
 IEPOX,HSO4           IEPOX_OS                       1.46E-7                 0            IEPOX
-IEPOX,SO4,H+         IEPOX_OS                       1.06E-8                 0            IEPOX
+IEPOX,SO4,H+         IEPOX_OS,H+                    1.06E-8                 0            IEPOX
 IEPOX,tetrol         tetrol_olig                    3.54E-2                 0            IEPOX                         
 H2O2                 OHrad,OHrad                    2.8E-6                  0            IEPOX
 OHrad,OHrad          H2O2                           3.6E6                   0            IEPOX
