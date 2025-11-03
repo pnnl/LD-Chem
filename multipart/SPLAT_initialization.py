@@ -1198,69 +1198,69 @@ def get_AGFL_profile(gas, trace_gas_folder):
 # ================================ main function ===============================
 
 # do a try/except so I can use the functions without doing the initialization
-#try:
-total_Np = int(sys.argv[1])
-les_path = str(sys.argv[2])
-output_path = str(sys.argv[3])
-les_number = str(int(sys.argv[4])).zfill(6)
+try:
+    total_Np = int(sys.argv[1])
+    les_path = str(sys.argv[2])
+    output_path = str(sys.argv[3])
+    les_number = str(int(sys.argv[4])).zfill(6)
 
-#sys.stdout = open('output.log', 'w')
+    #sys.stdout = open('output.log', 'w')
 
-splat_species = {'BC': ['soot'],
-                  'OIN': ['Dust'],
-                  'AS': ['sulfate_nitrate_org'],
-                  'AN': ['nitrate_amine_org'],
-                  'OC': ['org28', 'org30_43', 'BB_SOA', 'org_amines', 'BB', 'pyridine'],
-                  'IEPOX': ['IEPOX_SOA']}
+    splat_species = {'BC': ['soot'],
+                      'OIN': ['Dust'],
+                      'AS': ['sulfate_nitrate_org'],
+                      'AN': ['nitrate_amine_org'],
+                      'OC': ['org28', 'org30_43', 'BB_SOA', 'org_amines', 'BB', 'pyridine'],
+                      'IEPOX': ['IEPOX_SOA']}
 
-mass_fractions={'IEPOX': [[0.3,0.5,0.1], ['IEPOX_OS','tetrol','tetrol_olig', 'IEPOX_OH_SOA']],
-                'AS': [[0.5,0.7,0.1], ['SO4']],
-                'AN': [[0.5,0.7,0.1], ['NO3']],
-                'OC': [[0.5,0.7,0.1], ['OC']],
-                'BC': [[0.5,0.7,0.1], ['BC']],
-                'OIN': [[0.5,0.7,0.1], ['OIN']]}
+    mass_fractions={'IEPOX': [[0.3,0.5,0.1], ['IEPOX_OS','tetrol','tetrol_olig', 'IEPOX_OH_SOA']],
+                    'AS': [[0.5,0.7,0.1], ['SO4']],
+                    'AN': [[0.5,0.7,0.1], ['NO3']],
+                    'OC': [[0.5,0.7,0.1], ['OC']],
+                    'BC': [[0.5,0.7,0.1], ['BC']],
+                    'OIN': [[0.5,0.7,0.1], ['OIN']]}
 
-gas_names = ['SO2', 'O3', 'H2O2', 'IEPOX', 'OH', 'HNO3', 'NO2', 'NO', 'NH3']
+    gas_names = ['SO2', 'O3', 'H2O2', 'IEPOX', 'OH', 'HNO3', 'NO2', 'NO', 'NH3']
 
-diameters, num_concs, aero_spec_names, aero_spec_fracs, pHs, gas_data=splat_setup(Npart=total_Np,
-                       optimization_points=1000, mass_thresholds=mass_fractions,
-                       size_distribution_file='../../datasets/HISCALE_data_0425/BEASD_G1_20160425155810_R2_HISCALE_001s.txt',
-                       splat_file='../../datasets/HISCALE_data_0425/Splat_Composition_25-Apr-2016.txt',
-                       aimms_file='../../datasets/HISCALE_data_0425/AIMMS20_G1_20160425155810_R2_HISCALE020h.txt',
-                       trace_gas_folder='../../datasets/HISCALE_data_0425/CIMS_data',
-                       dz=100.0, splat_species=splat_species,
-                       mass_fractions=mass_fractions,
-                       gas_names=gas_names, les_path=les_path, les_number=les_number,
-                       ams_file='../../datasets/HISCALE_data_0425/HiScaleAMS_G1_20160425_R0.txt',
-                       override_matching=False,
-                       specdata_path='../../species_data/')
+    diameters, num_concs, aero_spec_names, aero_spec_fracs, pHs, gas_data=splat_setup(Npart=total_Np,
+                           optimization_points=1000, mass_thresholds=mass_fractions,
+                           size_distribution_file='../../datasets/HISCALE_data_0425/BEASD_G1_20160425155810_R2_HISCALE_001s.txt',
+                           splat_file='../../datasets/HISCALE_data_0425/Splat_Composition_25-Apr-2016.txt',
+                           aimms_file='../../datasets/HISCALE_data_0425/AIMMS20_G1_20160425155810_R2_HISCALE020h.txt',
+                           trace_gas_folder='../../datasets/HISCALE_data_0425/CIMS_data',
+                           dz=100.0, splat_species=splat_species,
+                           mass_fractions=mass_fractions,
+                           gas_names=gas_names, les_path=les_path, les_number=les_number,
+                           ams_file='../../datasets/HISCALE_data_0425/HiScaleAMS_G1_20160425_R0.txt',
+                           override_matching=False,
+                           specdata_path='../../species_data/')
 
-# write pickle files that save the initial aerosol properties
-f = open(output_path+'/diameters', 'wb')
-pickle.dump(diameters, f)
+    # write pickle files that save the initial aerosol properties
+    f = open(output_path+'/diameters', 'wb')
+    pickle.dump(diameters, f)
+        
+    f = open(output_path+'/num_concs', 'wb')
+    pickle.dump(num_concs, f)
+
+    f = open(output_path+'/aero_spec_names', 'wb')
+    pickle.dump(aero_spec_names, f)
+
+    f = open(output_path+'/aero_spec_fracs', 'wb')
+    pickle.dump(aero_spec_fracs, f)
+
+    f = open(output_path+'/pHs', 'wb')
+    pickle.dump(pHs, f)
+
+    f = open(output_path+'/gas_data', 'wb')
+    pickle.dump(gas_data, f)
+
+    f = open(output_path+'/trajectory_number', 'wb')
+    pickle.dump(les_number, f)
+
+    print()
     
-f = open(output_path+'/num_concs', 'wb')
-pickle.dump(num_concs, f)
-
-f = open(output_path+'/aero_spec_names', 'wb')
-pickle.dump(aero_spec_names, f)
-
-f = open(output_path+'/aero_spec_fracs', 'wb')
-pickle.dump(aero_spec_fracs, f)
-
-f = open(output_path+'/pHs', 'wb')
-pickle.dump(pHs, f)
-
-f = open(output_path+'/gas_data', 'wb')
-pickle.dump(gas_data, f)
-
-f = open(output_path+'/trajectory_number', 'wb')
-pickle.dump(les_number, f)
-
-print()
-    
-#except:
-#    pass
+except:
+    pass
 
 #import multiprocessing
 #print(f"Number of processes: {multiprocessing.cpu_count()}")

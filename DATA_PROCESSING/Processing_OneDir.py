@@ -7,14 +7,10 @@ Created on Mon Aug  4 09:53:00 2025
 """
 
 # %% import files
-import pickle
+import pickle, sys
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import gaussian_kde
-import matplotlib.font_manager as font_manager
+from scipy.integrate import trapezoid
 import os, shutil, time
-from numba.typed import Dict
-from numba import types
 multipart_directory='../multipart/'
 files = ['particles.py', 'HISCALE_data_processing.py', 'SPLAT_initialization.py', 'scenario.py',
           'TraceGases.py', 'Reactions.py', 'constants.py', 'aerosol_species.py', 'utilities.py',
@@ -26,12 +22,20 @@ for directory in directories:
     shutil.copytree(multipart_directory+directory, os.getcwd()+'/'+directory)
 from HISCALE_data_processing import classify, get_CD_status, Particle_MassFracs
 
-def get_files(*dirs):
-    # Get a list of sets, each containing file names in the respective directory
+
+def get_files(*dirs, extension=None):
+    """
+    Return sorted list of common files across multiple directories.
+    Optionally filters by file extension (e.g., '.txt', '.py').
+    """
     file_sets = []
     for d in dirs:
         try:
-            files = {f for f in os.listdir(d) if os.path.isfile(os.path.join(d, f))}
+            files = {
+                f for f in os.listdir(d)
+                if os.path.isfile(os.path.join(d, f))
+                and (extension is None or f.endswith(extension))
+            }
             file_sets.append(files)
         except FileNotFoundError:
             print(f"Directory not found: {d}")
@@ -40,7 +44,6 @@ def get_files(*dirs):
             print(f"Permission denied: {d}")
             return []
     
-    # Use set intersection to find common files
     if not file_sets:
         return []
     
@@ -57,46 +60,42 @@ mass_thresholds={'IEPOX': [[0.3,0.5,0.1], ['IEPOX_OS','tetrol','tetrol_olig', 'I
                 'OIN': [[0.5,0.7,0.1], ['OIN']],
                 'NH4': [[0.5,0.7,0.1], ['NH4']]}
 
-
-traj_dirs = ['../entrainment_tests/time_steps/1s',
-             '../entrainment_tests/time_steps/3s',
-             '../entrainment_tests/time_steps/5s',
-            '../entrainment_tests/time_steps/10s',
-             '../entrainment_tests/time_steps/15s']
-output_directory = 'time_steps_processed/15s'
-dir = '../entrainment_tests/time_steps/15s'
+WindDivergence = pickle.load(open('../datasets/parcel_traces_0425_15utc/WindDivergence.pkl', 'rb'))
+traj_dirs = ['test']
+output_directory = 'test_processed'
+dir = 'test'
 
 if not os.path.isdir(output_directory):
     os.mkdir(output_directory)
 
-trajfiles = get_files(*traj_dirs)
-print(dir+'/'+trajfiles[0])
+trajfiles = get_files(*traj_dirs, extension='.pkl')
 trajectory = pickle.load(open(dir+'/'+trajfiles[0], 'rb'))
-
 
 mass_fractions = {}
 masses = {}
 for ptype in mass_thresholds.keys():
     mass_fractions[ptype]=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
     masses[ptype]=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
-    activations=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
-    deactivations=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
-    CRT=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
-    cloud_state=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
-    NumConcs=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
-    dry_diameters=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
-    diameters=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
-    pHs=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
-    activated_fraction=np.zeros((len(trajectory['particles']), len(trajfiles)))
-    altitude=np.zeros((len(trajectory['particles']), len(trajfiles)))
-    temperature=np.zeros((len(trajectory['particles']), len(trajfiles)))
-    pressure=np.zeros((len(trajectory['particles']), len(trajfiles)))
-    S=np.zeros((len(trajectory['particles']), len(trajfiles)))
+
+activations=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
+deactivations=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
+CRT=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
+cloud_state=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
+NumConcs=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
+dry_diameters=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
+diameters=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
+pHs=np.zeros((len(trajectory['particles']), len(trajectory['particles'][0]), len(trajfiles)))
+activated_fraction=np.zeros((len(trajectory['particles']), len(trajfiles)))
+altitude=np.zeros((len(trajectory['particles']), len(trajfiles)))
+temperature=np.zeros((len(trajectory['particles']), len(trajfiles)))
+pressure=np.zeros((len(trajectory['particles']), len(trajfiles)))
+S=np.zeros((len(trajectory['particles']), len(trajfiles)))
+  
 
 for FileNumber, (file) in enumerate(trajfiles):
     steptime0 = time.time()
     trajectory = pickle.load(open(dir+'/'+file, 'rb'))
-
+    
     NumConcs[:,:,FileNumber]=trajectory['particles'][:,:,np.where(trajectory['particle species']=='num conc')[0][0]]
     dry_diameters[:,:,FileNumber]=trajectory['particles'][:,:,np.where(trajectory['particle species']=='Ddry')[0][0]]
     diameters[:,:,FileNumber]=trajectory['particles'][:,:,np.where(trajectory['particle species']=='Dwet')[0][0]]
@@ -120,6 +119,12 @@ for FileNumber, (file) in enumerate(trajfiles):
     
 
     for TimeStep in range(len(trajectory['times'])):
+        
+        x = trajectory['times'][:TimeStep+1]
+        y = np.interp(x, 60.0*np.arange(0, len(WindDivergence), 1), WindDivergence[:,int(file[-10:-4])])
+        integrated_u=trapz(y, x=x)
+        NumConcs[TimeStep,:,FileNumber]=NumConcs[0,:,FileNumber]*np.exp(-1.0*integrated_u) 
+    
         if trajectory['activated fraction'][TimeStep]>0:
             cloud_droplets = get_CD_status(trajectory['particles'][TimeStep,:,np.where(trajectory['particle species']=='Dwet')[0][0]],
                                                 trajectory['particles'][TimeStep,:,np.where(trajectory['particle species']=='Ddry')[0][0]],
@@ -129,7 +134,6 @@ for FileNumber, (file) in enumerate(trajfiles):
             idx=np.where(cloud_droplets>0)[0]
             cloud_state[TimeStep,idx,FileNumber]=1
             CRT[TimeStep+1:,idx,FileNumber]+=1
-        
     
     for pNumber in range(len(trajectory['particles'][0])):
         switches=cloud_state[1:,pNumber,FileNumber]-cloud_state[:-1,pNumber,FileNumber]
@@ -141,6 +145,14 @@ for FileNumber, (file) in enumerate(trajfiles):
             deactivations[TimeStep+1:,pNumber,FileNumber]+=1
     
     print(str(dir+'/'+file), trajectory['particles'][:,:,np.where(trajectory['particle species']=='num conc')[0][0]].shape, str(FileNumber+1)+'/'+str(len(trajfiles))+' -- '+str(round(time.time() - steptime0, 2))+ 's/it')
+
+aerosol_Ns = np.where(cloud_state == 0, NumConcs, 0)
+air_density=(pressure*0.0289652)/(8.314*temperature)
+total_MassConc = np.zeros(S.shape)
+for ptype in mass_thresholds.keys():
+    total_MassConc += 1e9*np.sum(aerosol_Ns*masses[ptype], axis=1)#/air_density
+idx = np.where((altitude>500) & (altitude<=700))
+NumConcs *= 4.441062694762885/(np.median(total_MassConc[idx]/air_density[idx])) # scale the number concentration so that the mixing ratio below cloud is equal to the measurements
 
 pickle.dump(cloud_state, open(output_directory+'/CloudState.pkl', 'wb'))
 pickle.dump(CRT, open(output_directory+'/CRT.pkl', 'wb'))

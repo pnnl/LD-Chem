@@ -12,11 +12,11 @@ import pickle, sys
 
 # %% LES trajectory
 
-diameters=pickle.load(open('diameters', 'rb'))[::10]
-num_concs=pickle.load(open('num_concs', 'rb'))[::10]
-aero_spec_names=pickle.load(open('aero_spec_names', 'rb'))[::10]
-aero_spec_fracs=pickle.load(open('aero_spec_fracs', 'rb'))[::10]
-pHs=pickle.load(open('pHs', 'rb'))[::10]
+diameters=pickle.load(open('diameters', 'rb'))
+num_concs=pickle.load(open('num_concs', 'rb'))
+aero_spec_names=pickle.load(open('aero_spec_names', 'rb'))
+aero_spec_fracs=pickle.load(open('aero_spec_fracs', 'rb'))
+pHs=pickle.load(open('pHs', 'rb'))
 
 gas_data=pickle.load(open('gas_data', 'rb'))
 les_number=pickle.load(open('trajectory_number', 'rb'))
@@ -40,7 +40,7 @@ simulate_les_trajectories(les_output_file=les_output_file, output_path=str(sys.a
         gas_chemistry = True, aq_chemistry = ['IEPOX','sulfate','nitrate','ammonium'],
         relaxation_time = 24.475, write_every=30.0)
 
-
+'''
 fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2,2)
 traj=pickle.load(open('trajectory_'+str(les_number)+'.pkl', 'rb'))
 
@@ -69,7 +69,7 @@ ax4.set_yscale('log')
 ax4.set_title(species)
 
 plt.show()
-
+'''
 
 
 

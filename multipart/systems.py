@@ -776,26 +776,28 @@ def air_from_les(ParcelState_0, processes, t2, one_trajectory_settings,
         if ParcelState_0.TraceGas_population:
             X0 = []
             X_env = []
-            for gas in gas_names:
-                idx = ParcelState_0.TraceGas_population.get_species_idx(gas)
+            for gas in ParcelState_0.TraceGas_population.gases:
+                idx = ParcelState_0.TraceGas_population.get_species_idx(gas.name)
                 X0.append(ParcelState_0.TraceGas_population.concs[idx])
-                if ParcelState_Next.z < np.min(gas_data[gas]['alt']):
-                    f = lambda x, a, b: a*x**b
-                    params, covariance = opt.curve_fit(f, gas_data[gas]['alt'][:2], gas_data[gas]['ppb'][:2], p0=[1, 0.1])
-                    X_env.append(f(ParcelState_Next.z, params[0], params[1]))
+                if gas.name in gas_names:
+                    if ParcelState_Next.z < np.min(gas_data[gas.name]['alt']):
+                        f = lambda x, a, b: a*x**b
+                        params, covariance = opt.curve_fit(f, gas_data[gas.name]['alt'][:2], gas_data[gas.name]['ppb'][:2], p0=[1, 0.1])
+                        X_env.append(f(ParcelState_Next.z, params[0], params[1]))
+                    else:
+                        X_env.append(np.interp(ParcelState_Next.z, xp=gas_data[gas.name]['alt'], fp=gas_data[gas.name]['ppb']))
+                elif gas.name == 'N2':
+                    X_env.append(1e9*0.7808)
+                elif gas.name == 'O2':
+                    X_env.append(1e9*0.2095)   
                 else:
-                    X_env.append(np.interp(ParcelState_Next.z, xp=gas_data[gas]['alt'], fp=gas_data[gas]['ppb']))
-                
-            idx = ParcelState_0.TraceGas_population.get_species_idx('N2')
-            if idx:
-                X0.append(ParcelState_0.TraceGas_population.concs[idx])
-                X_env.append(1e9*0.7808)
-            idx = ParcelState_0.TraceGas_population.get_species_idx('O2')
-            if idx:
-                X0.append(ParcelState_0.TraceGas_population.concs[idx])
-                X_env.append(1e9*0.2095)
+                    X_env.append(0.0)
+
+            X_env = np.array(X_env)
+            X0 = np.array(X0)
             
             rhs = lambda t, X_parcel: (1/relaxation_time)*(X_env-X_parcel)
+            
             if solver == 'CVODE':
                 prob = Explicit_Problem(rhs, X0)
                 sim = CVode(prob)
@@ -809,13 +811,7 @@ def air_from_les(ParcelState_0, processes, t2, one_trajectory_settings,
                                                  rtol=rtol, atol=atol, nsteps=5000)
                 ode15s.set_initial_value(X0, t0)
                 X_next = ode15s.integrate(ode15s.t+dt)
-                for ii, gas in enumerate(gas_names):
-                    idx = ParcelState_0.TraceGas_population.get_species_idx(gas)
-                    ParcelState_Next.TraceGas_population.concs[idx]=X_next[ii]
-                for ii, gas in enumerate(['N2', 'O2']):
-                    idx = ParcelState_0.TraceGas_population.get_species_idx(gas)
-                    if idx:
-                        ParcelState_Next.TraceGas_population.concs[idx]=X_next[len(gas_names)+ii]
+                ParcelState_Next.TraceGas_population.concs = X_next               
     else:
         ParcelState_Next.z = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.z_data)
         ParcelState_Next.x = np.interp(t2, one_trajectory_settings.t_data, one_trajectory_settings.x_data)
