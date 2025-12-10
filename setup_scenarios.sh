@@ -1,6 +1,6 @@
 #!/bin/bash
 
-num_trajectories=3
+num_trajectories=10
 particles_per_trajectory=100
 output_directory='test'
 LES_path='../../datasets/parcel_traces_0425_15utc'

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-working_directory='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/entrainment_tests'
+working_directory='test'
 
 cd ${working_directory}
 
@@ -9,7 +9,7 @@ for dir in */; do
     cd $dir
     pwd
     echo ''
-    ./RunScript.sh
+    ./RunScript_LES.sh
     cd ..
 done
 

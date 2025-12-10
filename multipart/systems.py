@@ -26,8 +26,8 @@ from processes import fluctuations
 from processes.air_thermo import compute_thermo_props, S_to_wv, wv_to_S, H2O_gas_conc
 import constants as c
 
-from assimulo.problem import Explicit_Problem
-from assimulo.solvers import CVode
+#from assimulo.problem import Explicit_Problem
+#from assimulo.solvers import CVode
 from scipy.integrate import ode
 from scipy.optimize import fminbound
 
@@ -448,10 +448,15 @@ def cocondensation_solver(particle_population, gas_population, P, T, S,
                                                                      water_volumes, 
                                                                      gas.molar_mass, gas.alpha)
             elif gas.name in ['HNO3', 'H2SO4']: # these are super soluble and fully dissociate, so treat the concentration at the surface of the particle as = 0.0
+                if gas.name == 'HNO3':
+                    Dl0 = 1.25e-9 # m^2/s (
+                elif gas.name == 'H2SO4':
+                    Dl0 = 0.5e-10 # m^2/s
+                    
                 rhs = lambda t, X: cocondensation.dCaq_dt_diffusion_limited(X, radii, water_volumes,
-                                                                            np.array(particle_population.num_concs), 
-                                                                            gas.molar_mass, gas.alpha, 
-                                                                            T, P)
+                                                                            np.array(particle_population.num_concs),
+                                                                            gas.molar_mass, gas.alpha, gas.get_Heff(T),
+                                                                            T, P, Dl0)
             else:
                 rhs = lambda t, X: cocondensation.dCaq_dt(X, radii, water_volumes,
                                                           np.array(particle_population.num_concs), 
@@ -484,7 +489,7 @@ def cocondensation_solver(particle_population, gas_population, P, T, S,
             # add to the feedbacks
             gas_feedback.names.append(gas.name)
             gas_feedback.dc_dts.append(1e9*(X_next[0]-X0[0])*((8.314*T)/P)) # ppb
-        
+            
     return ParticlePopulation_Next, gas_feedback
 
 

@@ -289,7 +289,7 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
         
         counter=0
         for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
-        # for (t1,t2) in zip(t_eval[:99],t_eval[1:100]):
+        #for (t1,t2) in zip(t_eval[:199],t_eval[1:200]):
             steptime0 = time.time()
             
             # original_ParcelState = copy.deepcopy(ParcelState_0) # keep this for mole balance at end of time step

@@ -28,7 +28,7 @@ les_output_file = sys.argv[1]+'/parcel_traces_'+les_number+'.pkl'
 print('Reading', les_output_file)#, file=f)
 
 simulate_les_trajectories(les_output_file=les_output_file, output_path=str(sys.argv[2]),
-        dt=5.0,diameters=diameters,N_concs=num_concs,
+        dt=1.0,diameters=diameters,N_concs=num_concs,
         pHs=pHs, accom=1.0, verbosity=50,
         radius_scale='log',solver='ode15s',
         species_names=aero_spec_names, mass_fractions=aero_spec_fracs,
@@ -36,8 +36,8 @@ simulate_les_trajectories(les_output_file=les_output_file, output_path=str(sys.a
         specdata_path='../../species_data/',
         mechanism_data_path='../../mechanisms/',
         condensation = True, collisions = False, settling = False,
-        cocondensation = True,  entrainment = True, freezing = False,
-        gas_chemistry = True, aq_chemistry = ['IEPOX','sulfate','nitrate','ammonium'],
+        cocondensation = False,  entrainment = False, freezing = False,
+        gas_chemistry = False, aq_chemistry = None,
         relaxation_time = 24.475, write_every=30.0)
 
 '''
