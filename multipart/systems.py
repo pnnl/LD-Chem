@@ -449,9 +449,9 @@ def cocondensation_solver(particle_population, gas_population, P, T, S,
                                                                      gas.molar_mass, gas.alpha)
             elif gas.name in ['HNO3', 'H2SO4']: # these are super soluble and fully dissociate, so treat the concentration at the surface of the particle as = 0.0
                 if gas.name == 'HNO3':
-                    Dl0 = 1.25e-9 # m^2/s (
+                    Dl0 = 1.25e-9 # m^2/s (reference value at 298 K, Newman et.al. 1973)
                 elif gas.name == 'H2SO4':
-                    Dl0 = 0.5e-10 # m^2/s
+                    Dl0 = 0.5e-10 # m^2/s (reference value at 298 K, Leaist et.al. 1984)
                     
                 rhs = lambda t, X: cocondensation.dCaq_dt_diffusion_limited(X, radii, water_volumes,
                                                                             np.array(particle_population.num_concs),

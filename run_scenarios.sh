@@ -1,15 +1,14 @@
 #!/bin/bash
 
-working_directory='test'
+working_directory='/rcfs/projects/partikkel/multipart/0425_100p_tau24'
 
 cd ${working_directory}
 
-for dir in */; do
-    dir=${dir%/}
-    cd $dir
+for (( traj=0; traj<50; traj++ ))
+do
+    cd trajectory_${traj}
     pwd
-    echo ''
-    ./RunScript_LES.sh
+    sbatch RunScript_CU.sh
     cd ..
 done
 
