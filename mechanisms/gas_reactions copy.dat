@@ -1,8 +1,0 @@
-reactants            products         rate_(mol/m3^(1-n)/s)       high_P_limit         T_dependence_(K)       form
-SO2,OH,N2            HOSO2,N2          1.1E5                      0.0                  -4.1                   power
-SO2,OH,O2            HOSO2,O2          1.1E5                      0.0                  -4.1                   power
-SO2,OH,H2O           HOSO2,H2O         5.7E5                      0.0                  -4.9                   power
-HOSO2,O2             HO2,SO3           2.7E5                      0.0                  -330                   exp
-SO3,H2O,H2O          H2SO4,H2O         1.414E-5                   0.0                  6830                   exp
-OH,NO2               HNO3              1.16E6                     1.81E7               -4.5                   troe
-OH,NO2               HOONO             3.63E4                     2.11E7               -4.5                   troe

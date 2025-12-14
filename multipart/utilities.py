@@ -8,6 +8,7 @@ Created on Wed Jul 10 14:38:52 2024
 import numpy as np
 import sys
 from processes import water_uptake
+from processes.air_thermo import H2O_gas_conc
 
 def get_number(string_val):
     if string_val.endswith('\n'):
@@ -59,7 +60,7 @@ def check_water_condensation(ParcelState_0, ParcelState_Next, dwc_dt):
     for ii, (particle, num_conc) in enumerate(zip(ParcelState_Next.particle_population.particles,ParcelState_Next.particle_population.num_concs)):
         masses_next[ii]=particle.masses[particle.idx_h2o]*num_conc # kg water / m^3 air
     
-    check = np.isclose(dwc_dt, np.sum(masses_next-masses_0))  
+    check = np.isclose(dwc_dt, np.sum(masses_next-masses_0))
     if not check:
         print('ERROR: Moles of condensing water does not match the change in particles!')
         sys.exit()
@@ -91,20 +92,22 @@ def water_mole_balance(ParcelState_0, ParcelState_Next):
 def check_mass_balance(original_population, new_population):
     
     Mass_0 = 0.0
-    for particle, num_conc in zip(original_population.particles, original_population.num_concs):
-        # for species, mass in zip(particle.species, particle.masses):
-        #     if species.name!='H2O':
-        #         Mass_0 += 1e18*mass 
-                
+    for ii, (particle, num_conc) in enumerate(zip(original_population.particles, original_population.num_concs)): 
         Mass_0+=np.sum(particle.masses)
         
+    
     Mass_new = 0.0
-    for particle, num_conc in zip(new_population.particles, new_population.num_concs):
-        # for species, mass in zip(particle.species, particle.masses):
-        #     if species.name!='H2O':
-        #         Mass_new += 1e18*mass 
-                
+    for ii, (particle, num_conc) in enumerate(zip(new_population.particles, new_population.num_concs)):
         Mass_new+=np.sum(particle.masses)
+        # for species, mass in zip(particle.species, particle.masses):
+        #     print(species.name, mass)
+        # print()
+    
+    # print()
+    # print(Mass_0, Mass_new, abs((Mass_0-Mass_new)/Mass_0), abs(Mass_0-Mass_new))
+    # print()
+    # import sys
+    # sys.exit()
     
     check = np.isclose(Mass_0, Mass_new, rtol=1e-3, atol=1e-8)
     if not check:
@@ -117,15 +120,18 @@ def check_mass_balance(original_population, new_population):
     return
     
 def check_gas_chemistry(ParcelState_0, ParcelState_Next):
-    
+
     Mass_0 = 0.0
-    for gas, conc in zip(ParcelState_0.TraceGas_population.gases, ParcelState_0.TraceGas_population.concs):
+    for gas, conc in zip(ParcelState_0.TraceGas_population.gases,
+        ParcelState_0.TraceGas_population.concs):
         Mass_0 += 1e-9*conc*gas.molar_mass # kg/m^3
-        
+    Mass_0 += 18e-3*H2O_gas_conc(ParcelState_0.S, ParcelState_0.T, ParcelState_0.P)
+
     Mass_next = 0.0
     for gas, conc in zip(ParcelState_Next.TraceGas_population.gases, ParcelState_Next.TraceGas_population.concs):
         Mass_next += 1e-9*conc*gas.molar_mass # kg/m^3
-                
+    Mass_next += 18e-3*H2O_gas_conc(ParcelState_Next.S, ParcelState_Next.T, ParcelState_Next.P)
+
     check = np.isclose(Mass_0, Mass_next, rtol=1e-3, atol=1e-8)
     if not check:
         print()

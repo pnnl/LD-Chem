@@ -380,14 +380,14 @@ def Particle_Concentrations(particle_masses, particle_species, specdata_path='..
     
     SpeciesData = particles.retrieve_one_species('H2O', specdata_path=specdata_path)
     H2O_idx = np.where(particle_species=='H2O')[0][0]
-    water_volumes = particle_masses[:,H2O_idx]/SpeciesData.density
+    water_volumes = particle_masses[:,:,H2O_idx]/SpeciesData.density
     concentrations=np.zeros(particle_masses.shape)
     concentrations[:]=np.nan
     for ii, (species) in enumerate(particle_species):
         try:
             SpeciesData = particles.retrieve_one_species(species, specdata_path=specdata_path)
-            moles_x = particle_masses[:,ii]/SpeciesData.molar_mass
-            concentrations[:,ii]=moles_x/water_volumes
+            moles_x = particle_masses[:,:,ii]/SpeciesData.molar_mass
+            concentrations[:,:,ii]=moles_x/water_volumes
         except Exception:
             pass
         

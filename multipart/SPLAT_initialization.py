@@ -72,6 +72,7 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
     original_Dp_uppers=measured_Dp_uppers[idx]
     original_N=measured_N[idx]
     original_N_error=measured_N_error[idx]
+    
     original_Dp_mids = original_Dp_lowers + 0.5*(original_Dp_uppers - original_Dp_lowers)
     
     
@@ -115,12 +116,12 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
 
         ptypes = []
         for species in particle_species:
-            ptypes.extend([species] * 1)#len(original_Dp_uppers[::3])) # the number here needs to match the grid below
+            ptypes.extend([species] * len(original_Dp_uppers[::3])) # the number here needs to match the grid below
         remaining = Npart - len(ptypes)
         if remaining > 0:
             ptypes.extend(np.random.choice(particle_species, size=remaining).tolist())
         np.random.shuffle(ptypes)
-                                
+    
         # get the size distribution for each type
         particle_diameters=np.zeros(Npart)
         particle_num_concs=np.zeros(Npart)
@@ -184,23 +185,24 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
                 SizeDist=original_SizeDist
             Dp_mids = Dp_lowers + 0.5*(Dp_uppers-Dp_lowers)
             # ===============================================================================================
-            '''
+            
             # sample parameters (force at least one particle in every bin)
-            idx=np.where(np.array([ptypes])==particle_type)[1]
-            bins_full=False
-            while bins_full==False:
-                rands=np.log10(np.min(Dp_uppers))+(np.log10(np.max(Dp_uppers))-np.log10(np.min(Dp_uppers)))*np.random.rand(len(idx))
-                hist=np.histogram(10**rands, bins=Dp_uppers)
-                if np.min(hist[0])>0:
-                    bins_full=True
+            idx = np.where(np.array([ptypes]) == particle_type)[1]
+            per_bin = np.random.uniform(np.log10(Dp_lowers), np.log10(Dp_uppers))   # shape (B,)
+            rest = np.random.uniform(np.log10(Dp_lowers[0]), np.log10(Dp_uppers[-1]), size=len(idx)-len(Dp_uppers))
+            rands = np.concatenate([per_bin, rest])
+            np.random.shuffle(rands)
+            assert len(rest)+len(per_bin)==len(idx)
             sampled_Dps=10**rands # nm
             sampled_Ns=np.interp(sampled_Dps, xp=Dp_mids, fp=SizeDist) # cm^-3
+
             '''
             # sample parameters (do not force one in each bin)
             idx=np.where(np.array([ptypes])==particle_type)[1]
             rands=np.log10(np.min(Dp_uppers))+(np.log10(np.max(Dp_uppers))-np.log10(np.min(Dp_uppers)))*np.random.rand(len(idx))
             sampled_Dps=10**rands # nm
             sampled_Ns=np.interp(sampled_Dps, xp=Dp_mids, fp=SizeDist) # cm^-3
+            '''
             
             # change number concentrations based on histogram
             for jj in range(0,len(Dp_uppers)):
@@ -225,15 +227,11 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
             particle_num_concs[spec_idx[0]]*=mult[ptype]
             modeled_Nfraction=np.sum(particle_num_concs[spec_idx[0]])/np.sum(particle_num_concs[all_idx[0]])
         
-        # match the measured number concentration
-        #mult=np.sum(measured_N)/(np.sum(particle_num_concs)/100**3)
-        #particle_num_concs*=mult
-        
         # sample the mass fraction of species in each particle
         aero_spec_names=[]
         aero_spec_fracs=[]   
-        aero_pHs=[]   
-            
+        aero_pHs=[]  
+                            
         for ii in range(len(ptypes)):
             
             included_species=[]
@@ -241,7 +239,7 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
             remaining_species=[]
             remaining_mass=np.zeros(0)
             breaker=False
-        
+            
             while breaker==False:
                 
                 total_incl_mass=np.random.normal(loc=mass_fractions[ptypes[ii]][0][1], scale=mass_fractions[ptypes[ii]][0][2])
@@ -303,6 +301,7 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
             aero_spec_names.append(temp_names)
             aero_spec_fracs.append(temp_fracs)
             aero_pHs.append(np.random.normal(loc=3.0, scale=0.5))
+            
         
         # check that the sampled mass fractions match measurements
         masses={}
@@ -317,8 +316,21 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
                                       aero_fracs_temp, specdata_path=specdata_path, 
                                       surface_tension=0.072, reactions=None, gases=None)
             for species in ams_mass_fractions.keys():
-                if type(OneParticle.get_species_idx(species))==int:
-                    masses[species]+=particle_num_concs[ii]*OneParticle.masses[OneParticle.get_species_idx(species)]        
+                if species == 'SO4':
+                    if type(OneParticle.get_species_idx(species))==int:
+                        masses[species]+=particle_num_concs[ii]*OneParticle.masses[OneParticle.get_species_idx(species)]
+                    if type(OneParticle.get_species_idx('AS'))==int:
+                        masses[species]+=particle_num_concs[ii]*(96/132)*OneParticle.masses[OneParticle.get_species_idx('AS')]
+                        masses['NH4']+=particle_num_concs[ii]*(36/132)*OneParticle.masses[OneParticle.get_species_idx('AS')]
+                elif species == 'NO3':
+                    if type(OneParticle.get_species_idx(species))==int:
+                        masses[species]+=particle_num_concs[ii]*OneParticle.masses[OneParticle.get_species_idx(species)]
+                    if type(OneParticle.get_species_idx('AN'))==int:
+                        masses[species]+=particle_num_concs[ii]*(62/80)*OneParticle.masses[OneParticle.get_species_idx('AN')]
+                        masses['NH4']+=particle_num_concs[ii]*(18/80)*OneParticle.masses[OneParticle.get_species_idx('AN')]
+                else:
+                    if type(OneParticle.get_species_idx(species))==int:
+                        masses[species]+=particle_num_concs[ii]*OneParticle.masses[OneParticle.get_species_idx(species)]
         
         total_mass=0
         for group in masses.keys():
@@ -334,6 +346,7 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
             sampled=sampled_mass_fractions[group]
             measured=ams_mass_fractions[group]
             measured_error=ams_mass_fraction_error[group]
+            
             if sampled >= measured-measured_error and sampled <= measured+measured_error:
                 checks.append(True)
             else:
@@ -419,8 +432,21 @@ def splat_setup(Npart=1, optimization_points=10000, mass_thresholds=None,
                                   aero_fracs_temp, specdata_path=specdata_path,
                                   surface_tension=0.072, reactions=None, gases=None)
         for species in ams_mass_fractions.keys():
-            if type(OneParticle.get_species_idx(species))==int:
-                masses[species]+=particle_num_concs[ii]*OneParticle.masses[OneParticle.get_species_idx(species)]
+            if species == 'SO4':
+                if type(OneParticle.get_species_idx(species))==int:
+                    masses[species]+=particle_num_concs[ii]*OneParticle.masses[OneParticle.get_species_idx(species)]
+                if type(OneParticle.get_species_idx('AS'))==int:
+                    masses[species]+=particle_num_concs[ii]*(96/132)*OneParticle.masses[OneParticle.get_species_idx('AS')]
+                    masses['NH4']+=particle_num_concs[ii]*(36/132)*OneParticle.masses[OneParticle.get_species_idx('AS')]
+            elif species == 'NO3':
+                if type(OneParticle.get_species_idx(species))==int:
+                    masses[species]+=particle_num_concs[ii]*OneParticle.masses[OneParticle.get_species_idx(species)]
+                if type(OneParticle.get_species_idx('AN'))==int:
+                    masses[species]+=particle_num_concs[ii]*(62/80)*OneParticle.masses[OneParticle.get_species_idx('AN')]
+                    masses['NH4']+=particle_num_concs[ii]*(18/80)*OneParticle.masses[OneParticle.get_species_idx('AN')]
+            else:
+                if type(OneParticle.get_species_idx(species))==int:
+                    masses[species]+=particle_num_concs[ii]*OneParticle.masses[OneParticle.get_species_idx(species)]
     
     print()
     print('Measured, modeled mass concentrations:')
@@ -484,7 +510,7 @@ def optimize_splat_size_distribution(datapoints=10000,size_distribution_file=Non
     V_dist = (4.0/3.0)*np.pi*np.power((Dp_mid)/2, 3)*measured_N # volume aerosol/volume air
     measured_Vtot = np.sum(V_dist) # total surface area per volume
     avg_number_fraction, number_fraction_error = splat_number_fractions(splat_file, aimms_file, size_distribution_file, splat_species, z, dz)
-    ams_mass_fractions, ams_mass_fraction_errors, measured_total_mass, measured_total_mass_error = ams_mass_fraction(ams_file, aimms_file, size_distribution_file, z, dz)       
+    ams_mass_fractions, ams_mass_fraction_errors, measured_total_mass, measured_total_mass_error = ams_mass_fraction(ams_file, aimms_file, size_distribution_file, z, dz)
     
     # set initial RSS
     min_RSS = 1e10
@@ -533,10 +559,19 @@ def optimize_splat_size_distribution(datapoints=10000,size_distribution_file=Non
             for s, f, m in zip(OneParticle.species, temp_fracs, OneParticle.masses):
                 if s.name != 'H2O':
                     volume_frac=(m/s.density)/((4.0/3.0)*np.pi*(100e-9/2)**3)
-                    Vtot=np.sum(spec_Ns*(4.0/3.0)*np.pi*((Dp_mid*1e-9)/2)**3)
+                    Vtot=np.sum(spec_Ns*(4.0/3.0)*np.pi*((Dp_mid*1e-9)/2)**3)                    
                     try:
-                        spec_masses[s.name]+=mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
-                        total_mass+=mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
+                        if s.name == 'AS':
+                            spec_masses['SO4']+=(96/132)*mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
+                            spec_masses['NH4']+=(36/132)*mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
+                            total_mass+=mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
+                        elif s.name == 'AN':
+                            spec_masses['NO3']+=(62/80)*mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
+                            spec_masses['NH4']+=(18/80)*mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
+                            total_mass+=mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
+                        else:    
+                            spec_masses[s.name]+=mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
+                            total_mass+=mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
                     except:
                         total_mass+=mass_thresholds[model_species[spec]][0][1]*s.density*volume_frac*Vtot
         
@@ -581,9 +616,9 @@ def optimize_splat_size_distribution(datapoints=10000,size_distribution_file=Non
             mult_to_save=mult
         
         counter+=1
-        #print(str(counter)+'/'+str(len(mode_fractions)), flush=True)
-        sys.stdout.write(str(counter)+'/'+str(len(mode_fractions))+'\n')
-        sys.stdout.flush()
+        print(str(counter)+'/'+str(len(mode_fractions)), flush=True)
+        #sys.stdout.write(str(counter)+'/'+str(len(mode_fractions))+'\n')
+        #sys.stdout.flush()
 
     output={}
     for ii in range(len(model_species)):
@@ -814,7 +849,21 @@ def ams_mass_fraction(ams_file, aimms_file, fims_file, z, dz):
     mass_frac['NH4'] = output['NH4']
     mass_frac_error['NH4'] = output['NH4_err']
     
-    return mass_frac, mass_frac_error, np.mean(ams_subdata['total_mass']), np.std(ams_subdata['total_mass'])
+    
+    measured_mass = np.mean(ams_subdata['total_mass'])
+    measured_mass_error = np.std(ams_subdata['total_mass'])
+    
+    '''
+    # take ground measurements: https://doi.org/10.5194/acp-21-5101-2021
+    error = 0.1
+    mass_frac = {'SO4': 0.242290749, 'NO3': 0.04845815, 
+                 'OC': 0.59030837, 'NH4': 0.114537445}
+    mass_frac_error = {'SO4': error*0.242290749, 'NO3': error*0.04845815, 
+                       'OC': error*0.59030837, 'NH4': error*0.114537445}
+    measured_mass = 6.788277512
+    measured_mass_error = error*6.788277512
+    '''
+    return mass_frac, mass_frac_error, measured_mass, measured_mass_error
 
 def splat_number_fractions(splat_file, aimms_file, fims_file, splat_species, z, dz):
     
@@ -1171,20 +1220,20 @@ try:
                     'BC': [[0.5,0.7,0.1], ['BC']],
                     'OIN': [[0.5,0.7,0.1], ['OIN']]}
 
-    gas_names = ['SO2', 'O3', 'H2O2', 'IEPOX', 'OH', 'HNO3', 'NO2', 'NO']
+    gas_names = ['SO2', 'O3', 'H2O2', 'IEPOX', 'OH', 'HNO3', 'NO2', 'NO', 'NH3']
 
     diameters, num_concs, aero_spec_names, aero_spec_fracs, pHs, gas_data=splat_setup(Npart=total_Np,
                            optimization_points=1000, mass_thresholds=mass_fractions,
-                           size_distribution_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/BEASD_G1_20160425155810_R2_HISCALE_001s.txt',
-                           splat_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/Splat_Composition_25-Apr-2016.txt',
-                           aimms_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/AIMMS20_G1_20160425155810_R2_HISCALE020h.txt',
-                           trace_gas_folder='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/CIMS_data',
+                           size_distribution_file='../../datasets/HISCALE_data_0425/BEASD_G1_20160425155810_R2_HISCALE_001s.txt',
+                           splat_file='../../datasets/HISCALE_data_0425/Splat_Composition_25-Apr-2016.txt',
+                           aimms_file='../../datasets/HISCALE_data_0425/AIMMS20_G1_20160425155810_R2_HISCALE020h.txt',
+                           trace_gas_folder='../../datasets/HISCALE_data_0425/CIMS_data',
                            dz=100.0, splat_species=splat_species,
                            mass_fractions=mass_fractions,
                            gas_names=gas_names, les_path=les_path, les_number=les_number,
-                           ams_file='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/datasets/HISCALE_data_0425/HiScaleAMS_G1_20160425_R0.txt',
-                           override_matching=True,
-                           specdata_path='/Users/beel083/Library/CloudStorage/OneDrive-PNNL/Desktop/multipart_archived-main/species_data/')
+                           ams_file='../../datasets/HISCALE_data_0425/HiScaleAMS_G1_20160425_R0.txt',
+                           override_matching=False,
+                           specdata_path='../../species_data/')
 
     # write pickle files that save the initial aerosol properties
     f = open(output_path+'/diameters', 'wb')

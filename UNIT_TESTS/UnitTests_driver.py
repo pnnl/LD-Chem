@@ -10,10 +10,10 @@ from UnitTests_scenario import create_constant_parcel
 from scenario import create_parcel_scenario
 from systems import Processes
 from driver import get_initial_parcel
-import copy, tqdm, time, sys
+import copy, tqdm, time, sys, os, shutil
 from systems import update_state, ParcelTrajectory
 from dataclasses import replace
-from scenario import make_AqReactions
+from scenario import make_AqReactions, make_GasReactions
 from processes import aqueous_chemistry as AC
 from processes import wall_losses
 from assimulo.problem import Explicit_Problem
@@ -22,6 +22,7 @@ from scipy.integrate import ode
 from Reactions import AqueousReactions
 from numba.typed import Dict
 from numba import types
+from write_files import write_original, overwrite
 
 
 # this module simulates the same scenarios as previously
@@ -33,13 +34,22 @@ def simulate_condensation_test(N_scenarios=1,
         pH0=7.0,accom=1., verbosity=50,
         radius_scale='lin',solver='CVODE',
         species_names=['NaCl'], mass_fractions=np.array([1.]),
+        output_path=None,
         gas_names=None, gas_conc=None,
         specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
         condensation = True, collisions = False, settling = False,
-        cocondensation = False, chemistry = None, freezing = False):
+        cocondensation = False, aq_chemistry = None, freezing = False,
+        gas_chemistry = False, entrainment = False, relaxation_time = None, 
+        write_every=1.0):
+        
+    if output_path:
+        if os.path.isdir(output_path):
+            shutil.rmtree(output_path)
+        os.mkdir(output_path)
+    else:
+        output_path=os.getcwd()
     
-    trajectory_ensemble = [] 
-
+    
     for i in range(N_scenarios):
         
         try:
@@ -63,12 +73,16 @@ def simulate_condensation_test(N_scenarios=1,
                 gas_names=gas_names, gas_conc=gas_conc,
                 dt=dt, specdata_path=specdata_path,
                 mechanism_data_path=mechanism_data_path,
-                chemistry=chemistry, cocondensation=cocondensation)     
-    
-        # print(np.sum(scenario.trajectories_settings[0].population0.num_concs), scenario.trajectories_settings[0].w0, np.sum(scenario.trajectories_settings[0].population0.particles[0].masses))
+                aq_chemistry=aq_chemistry, gas_chemistry=gas_chemistry,
+                cocondensation=cocondensation)             
         
-        if chemistry:
-            aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+        if gas_chemistry:
+            gas_reactions = make_GasReactions(mechanism_data_path=mechanism_data_path)
+        else:
+            gas_reactions = None
+        
+        if aq_chemistry:
+            aq_reactions = make_AqReactions(aq_chemistry=aq_chemistry, mechanism_data_path=mechanism_data_path)
         else:
             aq_reactions = None
     
@@ -77,8 +91,10 @@ def simulate_condensation_test(N_scenarios=1,
             collisions = collisions, 
             settling = settling,
             cocondensation = cocondensation, 
-            chemistry = chemistry, 
-            freezing = freezing)    
+            aq_chemistry = aq_chemistry, 
+            gas_chemistry=gas_chemistry,
+            freezing = freezing,
+            entrainment = entrainment)   
         
         print()
         for (one_trajectory_settings, start_time, end_time
@@ -89,36 +105,80 @@ def simulate_condensation_test(N_scenarios=1,
             ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)
             Ntimes = int((end_time - start_time)/dt)        
             t_eval = np.linspace(start_time, end_time, Ntimes) 
-            parcel_states = [copy.deepcopy(ParcelState_0)]
+            breaker=False
+            output_filename=output_path+'/trajectory_'+str(i)+'.pkl'
+            write_original(t_eval[0], ParcelState_0, output_filename, specdata_path=specdata_path)
+            last_written=t_eval[0]
+            
             pbar = tqdm.tqdm(total = len(t_eval))
-            for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):   
+            for (t1,t2) in zip(t_eval[:-1],t_eval[1:]): 
+                
+                # steptime0=time.time()
+                
                 ParcelState_Next = update_state(t1, t2,
-                    ParcelState_0, processes, dt, 
+                    ParcelState_0, processes, dt,
                     radius_scale=radius_scale,solver=solver,
                     accom=accom, verbosity=verbosity,
                     mechanism_data_path=mechanism_data_path,
-                    aq_reactions=aq_reactions)
-                parcel_states.append(copy.deepcopy(ParcelState_Next))
-                ParcelState_0=replace(ParcelState_Next)            
-        
-                # print()
-                # print('here')
-                # print()
-                # sys.exit()
+                    aq_reactions=aq_reactions, gas_reactions=gas_reactions,
+                    rtol=1e-4, atol=1e-8) # 1e-7, 1e-14
                 
+                # adjust the number concentration based on the new temperature and pressure
+                Ns=np.array(ParcelState_0.particle_population.num_concs)
+                Ns*=((ParcelState_Next.P*ParcelState_0.T)/(ParcelState_0.P*ParcelState_Next.T))
+                ParcelState_Next.particle_population.num_concs=list(Ns)      
+                
+                # print timestep and time for timestep
+                # counter+=1
+                #with open('RUN_PROGRESS.out', 'a') as f:
+                # print(str(counter)+'/'+str(len(t_eval))+' -- '+str(round(time.time() - steptime0, 2))+ 's/it')#, file=f)
+
+                # check for NaNs
+                total_mass = []
+                for particle, num_conc in zip(ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs):
+                    total_mass.append(num_conc*np.sum(particle.masses))
+                
+                #with open('RUN_PROGRESS.out', 'a') as f:
+                # print(str(ParcelState_Next.S)+' '+str(1e9*np.sum(np.array(total_mass))))#, file=f)
+                
+                # utilities.water_mole_balance(original_ParcelState, ParcelState_Next)
+                # print('')#, file=f)
+                   
+                # kill the program if there is a NaN
+                if np.isnan(np.sum(total_mass)):
+                    print('ERROR (NaNs)')
+                    sys.exit()
+                
+                # stop the simulation early once we reach max supersaturation
+                if ParcelState_Next.S < ParcelState_0.S:
+                    overwrite(t2, ParcelState_0, output_filename, specdata_path=specdata_path)
+                    breaker = True
+                    
+                # update parcel state
+                ParcelState_0=ParcelState_Next
                 pbar.update(1)
+                
+                # write backup files
+                if t2-last_written>=write_every:
+                    overwrite(t2, ParcelState_0, output_filename, specdata_path=specdata_path)
+                    last_written=t2
+                    # if breaker:
+                    #     break            
     
             pbar.close()
+            if breaker:
+                print('Early stopping at t = '+str(t2)+' s')
             print('Solving time:', round(time.time() - runtime0, 2), 'seconds')            
-            parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
-            print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
-            print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
-            print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')
+            # print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
+            # print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
+            # print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')
             
-            parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
-            trajectory_ensemble.append(parcel_trajectory)
+            # parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+            # trajectory_ensemble.append(parcel_trajectory)
+            
+            
     
-    return trajectory_ensemble
+    return
 
 
 # this module simulates partitioning between gas and
@@ -134,9 +194,11 @@ def simulate_gas_partitioning(N_scenarios=1,
         gas_names=None, gas_conc=None,
         specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
         condensation = True, collisions = False, settling = False,
-        cocondensation = False, chemistry = None, freezing = False):
+        cocondensation = False, aq_chemistry = None, freezing = False,
+        gas_chemistry=False, entrainment=False, write_every=1.0, relaxation_time=None):
         
-    trajectory_ensemble = []   
+    
+    # trajectory_ensemble = []   
     
     scenario = create_constant_parcel(
                 aerosol_population = None,
@@ -145,10 +207,15 @@ def simulate_gas_partitioning(N_scenarios=1,
                 species_names=species_names,mass_fractions=mass_fractions,
                 gas_names=gas_names, gas_conc=gas_conc,
                 dt=dt, specdata_path=specdata_path, mechanism_data_path=mechanism_data_path,
-                chemistry=chemistry, cocondensation=cocondensation)     
+                aq_chemistry=aq_chemistry, cocondensation=cocondensation)     
     
-    if chemistry:
-        aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+    if gas_chemistry:
+        gas_reactions = make_GasReactions(mechanism_data_path=mechanism_data_path)
+    else:
+        gas_reactions = None
+    
+    if aq_chemistry:
+        aq_reactions = make_AqReactions(aq_chemistry=aq_chemistry, mechanism_data_path=mechanism_data_path)
     else:
         aq_reactions = None
     
@@ -157,8 +224,10 @@ def simulate_gas_partitioning(N_scenarios=1,
         collisions = collisions, 
         settling = settling,
         cocondensation = cocondensation, 
-        chemistry = chemistry, 
-        freezing = freezing)      
+        aq_chemistry = aq_chemistry, 
+        gas_chemistry=gas_chemistry,
+        freezing = freezing,
+        entrainment = entrainment)   
     
     print()
     for (one_trajectory_settings, start_time, end_time
@@ -170,7 +239,7 @@ def simulate_gas_partitioning(N_scenarios=1,
         
         Ntimes = int((end_time - start_time)/dt)        
         t_eval = np.linspace(start_time, end_time, Ntimes) 
-        parcel_states = [copy.deepcopy(ParcelState_0)]
+        # parcel_states = [copy.deepcopy(ParcelState_0)]
         pbar = tqdm.tqdm(total = len(t_eval))
         for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):  
             ParcelState_Next = update_state(t1, t2,
@@ -179,7 +248,7 @@ def simulate_gas_partitioning(N_scenarios=1,
                 accom=accom, verbosity=verbosity,
                 mechanism_data_path=mechanism_data_path,
                 aq_reactions=aq_reactions)
-            parcel_states.append(copy.deepcopy(ParcelState_Next))
+            # parcel_states.append(copy.deepcopy(ParcelState_Next))
             ParcelState_0=replace(ParcelState_Next)            
     
             # print()
@@ -191,16 +260,16 @@ def simulate_gas_partitioning(N_scenarios=1,
 
         pbar.close()
         print('Solving time:', round(time.time() - runtime0, 2), 'seconds')            
-        parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
-        print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
-        print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
-        print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')
+        # parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+        # print('Maximum saturation ratio:', parcel_trajectory.get_max_S())
+        # print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')
+        # print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')
         
         
-        parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
-        trajectory_ensemble.append(parcel_trajectory)
+        # parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
+        # trajectory_ensemble.append(parcel_trajectory)
     
-    return trajectory_ensemble
+    return ParcelState_Next
 
 
 
@@ -217,7 +286,7 @@ def simulate_sulfate_partitioning(gas_concs,
         gas_names=None, gas_conc=None,
         specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
         condensation = True, collisions = False, settling = False,
-        cocondensation = False, chemistry = None, freezing = False):
+        cocondensation = False, aq_chemistry = None, freezing = False):
         
     trajectory_ensemble = []   
     print('Running trajectories...')
@@ -231,14 +300,14 @@ def simulate_sulfate_partitioning(gas_concs,
                     species_names=species_names,mass_fractions=mass_fractions,
                     gas_names=gas_names, gas_conc=gas_conc,
                     dt=dt, specdata_path=specdata_path, mechanism_data_path=mechanism_data_path,
-                    chemistry=chemistry, cocondensation=cocondensation)     
+                    aq_chemistry=aq_chemistry, cocondensation=cocondensation)     
         
         # change the SO2 gas concentration (changes the final pH)
         idx = scenario.trajectories_settings[0].gas0.get_species_idx('SO2')
         scenario.trajectories_settings[0].gas0.concs[idx]=SO2_conc
 
-        if chemistry:
-            aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+        if aq_chemistry:
+            aq_reactions = make_AqReactions(chemistry=aq_chemistry, mechanism_data_path=mechanism_data_path)
 
             # remove the sulfate oxidation reactions (only doing the equilibrium reactions)
             reactions=aq_reactions.reactions[:-5]
@@ -265,7 +334,7 @@ def simulate_sulfate_partitioning(gas_concs,
             collisions = collisions, 
             settling = settling,
             cocondensation = cocondensation, 
-            chemistry = chemistry, 
+            aq_chemistry = aq_chemistry, 
             freezing = freezing)      
         
         for (one_trajectory_settings, start_time, end_time
@@ -309,7 +378,7 @@ def simulate_sulfate_oxidation(pHs,
         gas_names=None, gas_conc=None,
         specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
         condensation = True, collisions = False, settling = False,
-        cocondensation = False, chemistry = None, freezing = False):
+        cocondensation = False, aq_chemistry = None, freezing = False):
         
     # print('Running trajectories...')
     # pbar = tqdm.tqdm(total = len(gas_concs))  
@@ -323,10 +392,10 @@ def simulate_sulfate_oxidation(pHs,
                     species_names=species_names,mass_fractions=mass_fractions,
                     gas_names=gas_names, gas_conc=gas_conc,
                     dt=dt, specdata_path=specdata_path, mechanism_data_path=mechanism_data_path,
-                    chemistry=chemistry, cocondensation=cocondensation) 
+                    aq_chemistry=aq_chemistry, cocondensation=cocondensation) 
         
-        if chemistry:
-            aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+        if aq_chemistry:
+            aq_reactions = make_AqReactions(chemistry=aq_chemistry, mechanism_data_path=mechanism_data_path)
         else:
             aq_reactions = None            
         
@@ -426,11 +495,17 @@ def simulate_IEPOX_chemistry(mu_star, N_scenarios=1,
         gas_names=None, gas_conc=None,
         specdata_path='../species_data/', mechanism_data_path='../mechanisms/',
         condensation = True, collisions = False, settling = False,
-        cocondensation = False, chemistry = None, freezing = False):
+        cocondensation = False, aq_chemistry = None, freezing = False,
+        gas_chemistry=False, entrainment=False, write_every=1.0, relaxation_time=None,
+        output_path=None):
     
-    trajectory_ensemble = [] 
+    if output_path:
+        if os.path.isdir(output_path):
+            shutil.rmtree(output_path)
+        os.mkdir(output_path)
+    else:
+        output_path=os.getcwd()
 
-      
     scenario = create_constant_parcel(
                 aerosol_population = None,
                 Ddry=Ddry,sigma=sigma,Ntot=Ntot,Npart=Npart,updraft_velocity=updraft_velocity,
@@ -438,23 +513,32 @@ def simulate_IEPOX_chemistry(mu_star, N_scenarios=1,
                 species_names=species_names,mass_fractions=mass_fractions,
                 gas_names=gas_names, gas_conc=gas_conc,
                 dt=dt, specdata_path=specdata_path, mechanism_data_path=mechanism_data_path,
-                chemistry=chemistry, cocondensation=cocondensation) 
+                aq_chemistry=aq_chemistry, cocondensation=cocondensation) 
 
-    if chemistry:
-        aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+    if aq_chemistry:
+        aq_reactions = make_AqReactions(chemistry=aq_chemistry, mechanism_data_path=mechanism_data_path)
     else:
         aq_reactions = None
+        
+    if gas_chemistry:
+        gas_reactions = make_GasReactions(chemistry=aq_chemistry, mechanism_data_path=mechanism_data_path)
+    else:
+        gas_reactions = None
 
     processes = Processes(
         condensation = condensation, 
         collisions = collisions, 
         settling = settling,
         cocondensation = cocondensation, 
-        chemistry = chemistry, 
-        freezing = freezing)    
+        aq_chemistry = aq_chemistry, 
+        gas_chemistry=gas_chemistry,
+        freezing = freezing,
+        entrainment = entrainment)    
+
     
-    if chemistry:
-        if 'sulfate' in chemistry:
+    
+    if aq_chemistry:
+        if 'sulfate' in aq_chemistry:
             particle_population=scenario.trajectories_settings[0].population0.particles
             for ii, (particle) in enumerate(particle_population):
                 water_volume=particle.get_vol_tot()-particle.get_vol_dry()
@@ -465,6 +549,112 @@ def simulate_IEPOX_chemistry(mu_star, N_scenarios=1,
                 particle.masses[particle.get_species_idx('HSO4')]=HSO4_conc*particle.species[particle.get_species_idx('HSO4')].molar_mass*water_volume
                 particle.masses[particle.get_species_idx('H2SO4')]=H2SO4_conc*particle.species[particle.get_species_idx('H2SO4')].molar_mass*water_volume
     
+    print()
+    for (one_trajectory_settings, start_time, end_time
+          ) in zip(scenario.trajectories_settings,scenario.start_times,scenario.end_times):        
+        
+        runtime0 = time.time()
+        print('Running trajectory,', Npart,'particles...')        
+        ParcelState_0 = get_initial_parcel(one_trajectory_settings, start_time)
+        Ntimes = int((end_time - start_time)/dt)        
+        t_eval = np.linspace(start_time, end_time, Ntimes) 
+        output_filename=output_path+'/trajectory.pkl'
+        write_original(t_eval[0], ParcelState_0, output_filename, specdata_path=specdata_path)
+        last_written=t_eval[0]
+        
+        pbar = tqdm.tqdm(total = len(t_eval))
+        for (t1,t2) in zip(t_eval[:-1],t_eval[1:]): 
+            
+            # print()
+            # particle_population=ParcelState_0.particle_population.particles
+            # for ii, (particle) in enumerate(particle_population):
+            #     water_volume=particle.get_vol_tot()-particle.get_vol_dry()
+            #     SO4_mass=particle.masses[particle.get_species_idx('SO4')]
+            #     HSO4_mass=particle.masses[particle.get_species_idx('HSO4')]
+            #     H2SO4_mass=particle.masses[particle.get_species_idx('H2SO4')]
+            #     print(ii, SO4_mass, HSO4_mass, H2SO4_mass, SO4_mass+HSO4_mass+H2SO4_mass)
+            # print()
+            
+            ParcelState_Next = update_state(t1, t2,
+                ParcelState_0, processes, dt,
+                radius_scale=radius_scale,solver=solver,
+                accom=accom, verbosity=verbosity,
+                mechanism_data_path=mechanism_data_path,
+                aq_reactions=aq_reactions, gas_reactions=gas_reactions,
+                rtol=1e-8, atol=1e-16) # 1e-4, 1e-8
+            
+            # print("HERE")
+            # particle_population=ParcelState_Next.particle_population.particles
+            # for ii, (particle) in enumerate(particle_population):
+            #     water_volume=particle.get_vol_tot()-particle.get_vol_dry()
+            #     SO4_mass=particle.masses[particle.get_species_idx('SO4')]
+            #     HSO4_mass=particle.masses[particle.get_species_idx('HSO4')]
+            #     H2SO4_mass=particle.masses[particle.get_species_idx('H2SO4')]
+            #     print(ii, SO4_mass, HSO4_mass, H2SO4_mass, SO4_mass+HSO4_mass+H2SO4_mass)
+            # print()
+            # sys.exit()
+            
+            
+            # do the chamber wall losses
+            Dps = np.zeros(len(ParcelState_Next.particle_population.particles))
+            Ns_0 = np.zeros(len(ParcelState_Next.particle_population.particles))
+            densities = np.zeros(len(ParcelState_Next.particle_population.particles))
+            for ii,(particle,num_conc) in enumerate(zip(ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs)):
+                Dps[ii] = particle.get_Dwet()
+                Ns_0[ii] = num_conc
+                densities[ii] = particle.get_trho()
+            
+            rhs = lambda t, Ns: wall_losses.particle_wall_loss(Ns, Dps, densities, ParcelState_Next.T, mu_star)
+            if solver == 'CVODE': 
+                prob = Explicit_Problem(rhs, Ns_0)
+                sim = CVode(prob)
+                sim.atol=1.0e-10
+                sim.rtol=1.0e-10
+                sim.verbosity=verbosity
+                output=sim.simulate(dt)
+                Ns_next=output[1][-1] # 1/m^3
+            elif solver == 'ode15s':
+                ode15s = ode(rhs).set_integrator('lsoda', method='bdf', 
+                                                  rtol=1E-10, atol=1E-10, nsteps=5000)
+                ode15s.set_initial_value(Ns_0, 0.0)
+                Ns_next = ode15s.integrate(ode15s.t+dt)  # mol/m^3
+            
+            # update the particle number concentrations
+            ParcelState_Next.particle_population.num_concs = Ns_next
+            
+            # check for NaNs
+            total_mass = []
+            for particle, num_conc in zip(ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs):
+                total_mass.append(num_conc*np.sum(particle.masses))
+            
+            #with open('RUN_PROGRESS.out', 'a') as f:
+            # print(str(ParcelState_Next.S)+' '+str(1e9*np.sum(np.array(total_mass))))#, file=f)
+            
+            # utilities.water_mole_balance(original_ParcelState, ParcelState_Next)
+            # print('')#, file=f)
+               
+            # kill the program if there is a NaN
+            if np.isnan(np.sum(total_mass)):
+                print('ERROR (NaNs)')
+                sys.exit()
+            
+            # stop the simulation early once we reach max supersaturation
+            if ParcelState_Next.S < ParcelState_0.S:
+                overwrite(t2, ParcelState_0, output_filename, specdata_path=specdata_path)
+                
+            # update parcel state
+            ParcelState_0=ParcelState_Next
+            pbar.update(1)
+            
+            # write backup files
+            if t2-last_written>=write_every:
+                overwrite(t2, ParcelState_0, output_filename, specdata_path=specdata_path)
+                last_written=t2          
+
+        pbar.close()
+        print('Solving time:', round(time.time() - runtime0, 2), 'seconds')   
+    
+    '''
     print()    
     for (one_trajectory_settings, start_time, end_time
           ) in zip(scenario.trajectories_settings,scenario.start_times,scenario.end_times):        
@@ -521,8 +711,8 @@ def simulate_IEPOX_chemistry(mu_star, N_scenarios=1,
         print()
         parcel_trajectory = ParcelTrajectory(ts=t_eval, parcel_states=parcel_states)
         trajectory_ensemble.append(parcel_trajectory)
-    
-    return trajectory_ensemble
+    '''
+    return 
 
 
 

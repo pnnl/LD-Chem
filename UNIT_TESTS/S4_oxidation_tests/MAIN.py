@@ -77,7 +77,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         specdata_path='species_data/', mechanism_data_path='mechanisms/',
         condensation = True, 
         collisions = False, settling = False,
-        cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
+        cocondensation = True, aq_chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
 output_data['O3']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='O3')
@@ -98,7 +98,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         specdata_path='species_data/', mechanism_data_path='mechanisms/',
         condensation = True, 
         collisions = False, settling = False,
-        cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
+        cocondensation = True, aq_chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
 output_data['H2O2']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='H2O2')
@@ -118,7 +118,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         specdata_path='species_data/', mechanism_data_path='mechanisms/',
         condensation = True, 
         collisions = False, settling = False,
-        cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
+        cocondensation = True, aq_chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
 output_data['NO2']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='NO2')
@@ -138,7 +138,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         specdata_path='species_data/', mechanism_data_path='mechanisms/',
         condensation = True, 
         collisions = False, settling = False,
-        cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
+        cocondensation = True, aq_chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
 output_data['HNO2']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='HONO')
@@ -159,7 +159,7 @@ dSO4_dt = simulate_sulfate_oxidation(pHs,
         specdata_path='species_data/', mechanism_data_path='mechanisms/',
         condensation = True, 
         collisions = False, settling = False,
-        cocondensation = True, chemistry = ['sulfate'], freezing = False) # kg/m^3/s
+        cocondensation = True, aq_chemistry = ['sulfate'], freezing = False) # kg/m^3/s
 
 output_data['O2+TMI']=dSO4_dt*1e9*3600
 published_data = pd.read_excel('published_data.xls', sheet_name='O2+TMI')
@@ -184,7 +184,7 @@ for label in ax.get_yticklabels():
     label.set_fontsize(axis_tick_fontsize)
 
 fig.savefig('S4_oxidation.png', bbox_inches='tight', dpi=200)
-
+plt.show()
 
 pickle.dump(output_data, open('sulfate_oxidation_data.pkl', 'wb'))
 

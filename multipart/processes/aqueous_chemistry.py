@@ -35,8 +35,8 @@ def dCaq_dt(Caq_0, reactants_all, products_all, rates, aq_names, T):
             dCaq_dt_all=HNO2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T)
         elif reactants==['S(IV)','O2']:
             dCaq_dt_all=O2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T)
-        elif reactants==['IEPOX','H2O'] and products==['IEPOX_OS','tetrol','tetrol_olig']:
-            dCaq_dt_all=IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T)
+        # elif reactants==['IEPOX','H2O'] and products==['IEPOX_OS','tetrol','tetrol_olig']:
+        #     dCaq_dt_all=IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T)
         elif reactants==['IEPOX','OHrad']:
             dCaq_dt_all=IEPOX_OH_chemistry(Caq_0, dCaq_dt_all, aq_names, T)
         else:
@@ -232,10 +232,11 @@ def HNO2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
     x_SO4 = np.power(1+(Hplus_conc/Keq2)+((Hplus_conc*Hplus_conc)/(Keq1*Keq2)), -1.0)
     
     dS6_dt=k1*HNO2_conc*(SO2_conc+HSO3_conc+SO3_conc)
+        
     dCaq_dt_all[H2SO4_idx]+=1000*x_H2SO4*dS6_dt
     dCaq_dt_all[HSO4_idx]+=1000*x_HSO4*dS6_dt
     dCaq_dt_all[SO4_idx]+=1000*x_SO4*dS6_dt
-    
+        
     return dCaq_dt_all
 
 @nb.njit()
@@ -272,6 +273,9 @@ def O2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
     else:
         k1 = 7.51e13*(Hplus_conc**(0.67))*Mn_conc*Fe_conc
     
+    if SO2_conc+HSO3_conc+SO3_conc==0: # allows the function to not throw NaNs if there is no S(IV) in the particle
+        k1=0
+    
     dCaq_dt_all[SO2_idx]-=1000*k1*SO2_conc
     dCaq_dt_all[HSO3_idx]-=1000*k1*HSO3_conc
     dCaq_dt_all[SO3_idx]-=1000*k1*SO3_conc
@@ -283,14 +287,19 @@ def O2_sulfur_oxidation_rate(Caq_0, dCaq_dt_all, aq_names, T):
     x_SO4 = np.power(1+(Hplus_conc/Keq2)+((Hplus_conc*Hplus_conc)/(Keq1*Keq2)), -1.0)
     
     dS6_dt=k1*(SO2_conc+HSO3_conc+SO3_conc)
+    
     dCaq_dt_all[H2SO4_idx]+=1000*x_H2SO4*dS6_dt
     dCaq_dt_all[HSO4_idx]+=1000*x_HSO4*dS6_dt
     dCaq_dt_all[SO4_idx]+=1000*x_SO4*dS6_dt
 
     return dCaq_dt_all
 
-@nb.njit()
+
+'''
+#@nb.njit()
 def IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
+        
+    print('In old function')
     
     HSO4_conc = 0
     NH4_conc = 0
@@ -301,6 +310,7 @@ def IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
             H2O_idx = ii
         elif name == 'H+':
             Hplus_conc=0.001*Caq_0[ii]
+            Hplus_idx = ii
         elif name == 'HSO4':
             HSO4_conc=0.001*Caq_0[ii]
             HSO4_idx = ii
@@ -322,9 +332,42 @@ def IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
             tetrol_olig_idx = ii
             
     
+    # R1: C5H10O3 (IEPOX) + H2O --> C5H12O4 (tetrol)  1.0E-8
+    R = 1.8e-4*H2O_conc
+    dCaq_dt_all[IEPOX_idx] -= R*IEPOX_conc*H2O_conc*Hplus_conc
+    dCaq_dt_all[H2O_idx] -= R*IEPOX_conc*H2O_conc*Hplus_conc
+    dCaq_dt_all[tetrol_idx] += R*IEPOX_conc*H2O_conc*Hplus_conc
+    
+    # R2: C5H10O3 (IEPOX) + HSO4- --> C5​H11​O7​S− (IEPOX_OS) 1.46E-7
+    R = 2.62e-6*H2O_conc
+    dCaq_dt_all[IEPOX_idx] -= R*IEPOX_conc*HSO4_conc
+    dCaq_dt_all[HSO4_idx] -= R*IEPOX_conc*HSO4_conc
+    dCaq_dt_all[IEPOX_OS_idx] += R*IEPOX_conc*HSO4_conc
+    
+    # R3: C5H10O3 (IEPOX) + SO4 + H+ --> C5H11O7S- (IEPOX_OS) 1.06E-8
+    R = 1.91e-4*H2O_conc
+    dCaq_dt_all[IEPOX_idx] -= R*IEPOX_conc*SO4_conc*Hplus_conc
+    dCaq_dt_all[SO4_idx] -= R*IEPOX_conc*SO4_conc*Hplus_conc
+    dCaq_dt_all[Hplus_idx] -= R*IEPOX_conc*SO4_conc*Hplus_conc
+    dCaq_dt_all[IEPOX_OS_idx] += R*IEPOX_conc*SO4_conc*Hplus_conc
+     
+    # R4: C5​H10​O3​ (IEPOX) + C5​H12​O4​ (tetrol) --> C10​H22​O7 ​(tetrol_olig)
+    R = 6.37e-4*H2O_conc
+    dCaq_dt_all[IEPOX_idx] -= R*IEPOX_conc*tetrol_conc
+    dCaq_dt_all[tetrol_idx] -= R*IEPOX_conc*tetrol_conc
+    dCaq_dt_all[tetrol_olig_idx] += R*IEPOX_conc*tetrol_conc
+    
+       
+    # print()
+    # print(dCaq_dt_all[tetrol_idx]+dCaq_dt_all[IEPOX_OS_idx]+dCaq_dt_all[tetrol_olig_idx])
+    # print()
+    
+    
+    # =======================================================================
+    
     kaqs = [1.8e-4, 2.62e-6, 6.2e-8, 1.91e-4]
     kaq = kaqs[0]*Hplus_conc*H2O_conc + kaqs[1]*HSO4_conc*H2O_conc + kaqs[2]*NH4_conc*H2O_conc + kaqs[3]*Hplus_conc*SO4_conc # 1/s
-        
+    
     tau_olig=24 # AS: 12, ABS: 1.5
     BETA=0.35 # AS: 0.35, ABS: 0.6
     
@@ -334,7 +377,8 @@ def IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
     dCaq_dt_all[tetrol_olig_idx] += (1/(tau_olig*3600))*tetrol_conc # mol/m^3*s
     dCaq_dt_all[tetrol_idx] -= (1/(tau_olig*3600))*tetrol_conc # mol/m^3*s
     
-    # dCaq_dt_all[H2O_idx] -= (kaqs[0]*Hplus_conc*H2O_conc+kaqs[1]*HSO4_conc*H2O_conc+kaqs[2]*NH4_conc*H2O_conc)*IEPOX_conc
+    dCaq_dt_all[H2O_idx] -= (kaqs[0]*Hplus_conc*H2O_conc+kaqs[1]*HSO4_conc*H2O_conc+kaqs[2]*NH4_conc*H2O_conc)*IEPOX_conc
+    # dCaq_dt_all[Hplus_idx] -= BETA*kaq*IEPOX_conc + (1/(tau_olig*3600))*tetrol_conc
     if HSO4_conc > 0:
         dCaq_dt_all[HSO4_idx] -= kaqs[1]*HSO4_conc*H2O_conc*IEPOX_conc
     if NH4_conc > 0:
@@ -342,7 +386,9 @@ def IEPOX_SOA_chemistry(Caq_0, dCaq_dt_all, aq_names, T):
     if SO4_conc > 0:
         dCaq_dt_all[SO4_idx] -= kaqs[3]*Hplus_conc*SO4_conc*IEPOX_conc
     
+
     return dCaq_dt_all
+'''
 
 @nb.njit()
 def IEPOX_OH_chemistry(Caq_0, dCaq_dt_all, aq_names, T):

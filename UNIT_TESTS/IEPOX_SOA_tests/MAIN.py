@@ -10,7 +10,7 @@ Created on Fri Nov 26 10:45:10 2024
 # probably need a different way to do this but I don't 
 # want to mess with sys.path
 
-import shutil, os, sys
+import shutil, os, sys, pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -51,7 +51,7 @@ for directory in directories:
 
 
 from UnitTests_driver import simulate_IEPOX_chemistry
-from SPLAT_initialization import Nmodal_lognormal
+# from SPLAT_initialization import Nmodal_lognormal
 from processes import water_uptake
 from particles import make_particle, ParticlePopulation
 from scenario import get_aero_spec_fracs
@@ -71,80 +71,14 @@ def get_wet_diameter(Dp, species, S0, T0, P0, pH0):
     if 'H+' not in aero_spec_names:
         aero_spec_names.append('H+')
         aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
-    if 'OH' not in aero_spec_names:
-        aero_spec_names.append('OH')
+    if 'OH-' not in aero_spec_names:
+        aero_spec_names.append('OH-')
         aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
     
     OneParticle = make_particle(Dp, aero_spec_names, aero_spec_fracs, specdata_path='species_data/')
     population0 = ParticlePopulation(particles=[OneParticle], num_concs=[1.0], ids=[0])
     population0 = water_uptake.equilibrate_water(population0, S0, T0, P0, pH0)
     return population0.particles[0].get_Dwet()
-
-
-
-# %% optimize friction velocity for the AS runs
-
-# AS
-# Npart = 30
-# S0 = 0.51
-# T0 = 297
-# P0 = 101325
-# pH0 = 1.5
-
-# def optimize_friction_velocity(ts, mu):
-    
-#     print(mu)
-#     # fit the measured initial AS size distribution
-#     published_data = pd.read_excel('published_data.xls', sheet_name='SizeDists_AS')               
-#     measured_Ddrys = dry_SizeDist(np.array((published_data['Dp (t=0)']))*1e-9, 'AS', S0, T0, P0, pH0)
-#     Ddrys = np.array((measured_Ddrys))
-#     Ns = np.array((published_data['N (t=0)']*100**3))
-#     idx = np.where(Ns<0)
-#     Ns[idx[0]]=0
-    
-#     trajectory_ensemble = simulate_IEPOX_chemistry(mu,
-#             t_end=7200.0, dt=30.0, updraft_velocity=0.0,
-#             Ddry=Ddrys, Ntot=Ns,
-#             S0=S0, P0=P0, T0=T0,pH0=pH0,
-#             accom=1., verbosity=50,
-#             species_names=['AS'], mass_fractions=np.array([1.]),
-#             gas_names=['IEPOX'], gas_conc=[1.0],
-#             radius_scale='lin',solver='CVODE',
-#             specdata_path='species_data/', mechanism_data_path='mechanisms/',
-#             condensation = True, 
-#             collisions = False, settling = False,
-#             cocondensation = True, chemistry = ['IEPOX'], freezing = False) # kg/m^3/s
-
-#     model_time = np.zeros(len(trajectory_ensemble[0].parcel_states))
-#     model_Ntot = np.zeros(len(trajectory_ensemble[0].parcel_states))
-#     for ii,(parcelstate) in enumerate(trajectory_ensemble[0].parcel_states):
-#         particle_population=parcelstate.particle_population
-#         model_time[ii]=trajectory_ensemble[0].ts[ii]/60 # minutes
-#         Dps = np.zeros(len(particle_population.particles))
-#         Ns = np.zeros(len(particle_population.particles))
-#         for jj,(particle,num_conc) in enumerate(zip(particle_population.particles, particle_population.num_concs)):
-#             Ns[jj]=num_conc # 1/m^3
-#             Dps[jj]=particle.get_Dwet()
-#         model_Ntot[ii]=trapz(Ns/100**3, x=np.log10(Dps)) # 1/cm^3
-        
-#     output_Ntot = np.zeros(len(ts))
-#     for ii in range(len(ts)):
-#         output_Ntot[ii]=np.interp(ts[ii], xp=model_time, fp=model_Ntot)
-        
-#     return output_Ntot*1e3
-    
-# published_data = pd.read_excel('published_data.xls', sheet_name='wall_losses_AS')      
-# p0 = 0.7939091250408041
-# pars, cov = curve_fit(optimize_friction_velocity, xdata=published_data['minutes'], ydata=published_data['Ntot'], p0=p0)
-# mu_star = pars[0]
-
-# plt.plot(published_data['minutes'], published_data['Ntot'], 'ro')
-# ts = np.linspace(0, 120, 1000)
-# Ntot = optimize_friction_velocity(ts, pars[0])
-# plt.plot(ts, Ntot, '-k')
-# plt.show()
-
-# print('mu =', mu_star)
 
 
 # %% do the the AS runs
@@ -169,18 +103,21 @@ Ns[idx[0]]=0
 
 # 7200.0
 
-AS_trajectory_ensemble = simulate_IEPOX_chemistry(mu_star,
-        t_end=7200.0, dt=30.0, updraft_velocity=0.0,
-        Ddry=Ddrys, Ntot=Ns, Npart=len(Ddrys),
-        S0=S0, P0=P0, T0=T0,pH0=pH0,
-        accom=1., verbosity=50,
-        species_names=['AS'], mass_fractions=np.array([1.0]),
-        gas_names=['IEPOX'], gas_conc=[500.0],
-        radius_scale='lin',solver='ode15s',
-        specdata_path='species_data/', mechanism_data_path='mechanisms/',
-        condensation = True, 
-        collisions = False, settling = False,
-        cocondensation = True, chemistry = ['IEPOX'], freezing = False) # kg/m^3/s
+
+# simulate_IEPOX_chemistry(mu_star,
+#         t_end=7200.0, dt=5.0, updraft_velocity=0.0,
+#         Ddry=Ddrys, Ntot=Ns, Npart=len(Ddrys),
+#         S0=S0, P0=P0, T0=T0,pH0=pH0,
+#         accom=1., verbosity=50,
+#         species_names=['AS'], mass_fractions=np.array([1.0]),
+#         gas_names=['IEPOX'], gas_conc=[500.0],
+#         radius_scale='lin',solver='ode15s',
+#         specdata_path='species_data/', mechanism_data_path='mechanisms/',
+#         condensation = True, 
+#         collisions = False, settling = False, gas_chemistry=False, entrainment=False,
+#         cocondensation = True, aq_chemistry = ['IEPOX'], freezing = False,
+#         relaxation_time=None, output_path='AS_runs',
+#         write_every=30.0) # kg/m^3/s
 
 
 
@@ -226,63 +163,58 @@ comp.grid(which='major', axis='y', color='grey', alpha=0.4, linewidth=1)
 #%% do the 3 panel plot
 
 # update the size distribution plots
-model_Dps = np.zeros(len(AS_trajectory_ensemble[0].parcel_states[0].particle_population.particles))
-model_Ns = np.zeros(len(AS_trajectory_ensemble[0].parcel_states[0].particle_population.particles))
-for ii,(particle, num_conc) in enumerate(zip(AS_trajectory_ensemble[0].parcel_states[0].particle_population.particles, AS_trajectory_ensemble[0].parcel_states[0].particle_population.num_concs)):
-    model_Dps[ii]=particle.get_Dwet()
-    model_Ns[ii]=num_conc
+trajectory = pickle.load(open('AS_runs/trajectory.pkl', 'rb'))
+model_Dps = trajectory['particles'][:,:,np.where(trajectory['particle species']=='Dwet')[0][0]]
+model_Ns = trajectory['particles'][:,:,np.where(trajectory['particle species']=='num conc')[0][0]]
 
 published_data = pd.read_excel('published_data.xls', sheet_name='SizeDists_AS') 
-sd.plot(published_data['Dp (t=0)'], published_data['N (t=0)'], '-', color='grey', label='t = 0 min (measured)')
-sd.plot(published_data['Dp (t=120)'], published_data['N (t=120)'], '-', color='r', label='t = 120 min (measured)')
+sd.plot(published_data['Dp (t=0)'], published_data['N (t=0)']/np.max(published_data['N (t=0)']), '-', color='grey', label='t = 0 min (measured)')
+sd.plot(published_data['Dp (t=120)'], published_data['N (t=120)']/np.max(published_data['N (t=120)']), '-', color='r', label='t = 120 min (measured)')
 
-model_Dps = np.zeros(len(AS_trajectory_ensemble[0].parcel_states[-1].particle_population.particles))
-model_Ns = np.zeros(len(AS_trajectory_ensemble[0].parcel_states[-1].particle_population.particles))
-for ii,(particle, num_conc) in enumerate(zip(AS_trajectory_ensemble[0].parcel_states[-1].particle_population.particles, AS_trajectory_ensemble[0].parcel_states[-1].particle_population.num_concs)):
-    model_Dps[ii]=particle.get_Dwet()
-    model_Ns[ii]=num_conc
-
-sd.plot(model_Dps*1e9, model_Ns/100**3, 'ro', label = 't = 120 min (modeled)')
+# sd.plot(model_Dps[-1]*1e9, model_Ns[-1]/100**3, 'ro', label = 't = 120 min (modeled)')
+sd.plot(model_Dps[-1]*1e9, model_Ns[-1]/np.max(model_Ns[-1]), 'ro', label = 't = 120 min (modeled)')
 sd.set_xscale('log')
 sd.set_ylabel(r'dN/dlogdp (cm$^{-3}$)', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
 sd.set_ylabel(r'dN/dlogdp (cm$^{-3}$)', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
 sd.set_xlabel('Diameter (nm)', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
 sd.set_xlim(10, 1000)
-sd.set_ylim(0,0.035)
+sd.set_ylim(0,1.1)
 sd.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.1), frameon=False, prop=font)
 sd.text(-0.2, 1.15, 'A', transform=sd.transAxes, font=fontname, fontsize=1.5*axis_label_fontsize)
     
-tetrol_mass = 0
-tetrol_olig_mass = 0
-IEPOX_OS_mass = 0
-total_mass = 0
-Ns = []
-pHs = []
-for ii,(particle, num_conc) in enumerate(zip(AS_trajectory_ensemble[0].parcel_states[-1].particle_population.particles, AS_trajectory_ensemble[0].parcel_states[-1].particle_population.num_concs)):
-    tetrol_mass+=particle.masses[particle.get_species_idx('tetrol')]*num_conc
-    tetrol_olig_mass+=particle.masses[particle.get_species_idx('tetrol_olig')]*num_conc
-    IEPOX_OS_mass+=particle.masses[particle.get_species_idx('IEPOX_OS')]*num_conc
-    total_mass+=(particle.masses[particle.get_species_idx('tetrol')]+particle.masses[particle.get_species_idx('tetrol_olig')]+particle.masses[particle.get_species_idx('IEPOX_OS')])*num_conc    
-    pHs.append(particle.get_pH())
-    Ns.append(num_conc)
-print()
-print('AS runs: avg pH =', np.average(pHs, weights=Ns))
-print()  
+# tetrol_mass = 0
+# tetrol_olig_mass = 0
+# IEPOX_OS_mass = 0
+# total_mass = 0
+# Ns = []
+# pHs = []
+# for ii,(particle, num_conc) in enumerate(zip(AS_trajectory_ensemble[0].parcel_states[-1].particle_population.particles, AS_trajectory_ensemble[0].parcel_states[-1].particle_population.num_concs)):
+#     tetrol_mass+=particle.masses[particle.get_species_idx('tetrol')]*num_conc
+#     tetrol_olig_mass+=particle.masses[particle.get_species_idx('tetrol_olig')]*num_conc
+#     IEPOX_OS_mass+=particle.masses[particle.get_species_idx('IEPOX_OS')]*num_conc
+#     total_mass+=(particle.masses[particle.get_species_idx('tetrol')]+particle.masses[particle.get_species_idx('tetrol_olig')]+particle.masses[particle.get_species_idx('IEPOX_OS')])*num_conc    
+#     pHs.append(particle.get_pH())
+#     Ns.append(num_conc)
+# print()
+# print('AS runs: avg pH =', np.average(pHs, weights=Ns))
+# print()  
 
-number_mean_diameters = np.zeros(len(AS_trajectory_ensemble[0].parcel_states))
-model_time = np.zeros(len(AS_trajectory_ensemble[0].parcel_states))
-for ii in range(len(AS_trajectory_ensemble[0].parcel_states)):
-    model_time[ii]=AS_trajectory_ensemble[0].ts[ii]
-    temp_Dps = np.zeros(len(AS_trajectory_ensemble[0].parcel_states[ii].particle_population.particles))
-    temp_Ns = np.zeros(len(AS_trajectory_ensemble[0].parcel_states[ii].particle_population.particles))
-    for jj,(particle, num_conc) in enumerate(zip(AS_trajectory_ensemble[0].parcel_states[ii].particle_population.particles, AS_trajectory_ensemble[0].parcel_states[ii].particle_population.num_concs)):
-        temp_Dps[jj]=particle.get_Dwet()
-        temp_Ns[jj]=num_conc
-    number_mean_diameters[ii]=np.average(temp_Dps, weights=temp_Ns)
-    
+# number_mean_diameters = np.zeros(len(AS_trajectory_ensemble[0].parcel_states))
+# model_time = np.zeros(len(AS_trajectory_ensemble[0].parcel_states))
+# for ii in range(len(AS_trajectory_ensemble[0].parcel_states)):
+#     model_time[ii]=AS_trajectory_ensemble[0].ts[ii]
+#     temp_Dps = np.zeros(len(AS_trajectory_ensemble[0].parcel_states[ii].particle_population.particles))
+#     temp_Ns = np.zeros(len(AS_trajectory_ensemble[0].parcel_states[ii].particle_population.particles))
+#     for jj,(particle, num_conc) in enumerate(zip(AS_trajectory_ensemble[0].parcel_states[ii].particle_population.particles, AS_trajectory_ensemble[0].parcel_states[ii].particle_population.num_concs)):
+#         temp_Dps[jj]=particle.get_Dwet()
+#         temp_Ns[jj]=num_conc
+#     number_mean_diameters[ii]=np.average(temp_Dps, weights=temp_Ns)
+ 
+
+number_mean_diameters = np.average(model_Dps, weights=model_Ns, axis=1)  
 published_data = pd.read_excel('published_data.xls', sheet_name='number_mean_AS') 
 nmean.plot(published_data['time'], published_data['Dp'], 'ko', label='measured')
-nmean.plot(model_time/60, number_mean_diameters*1e9, '-r', label='modeled')
+nmean.plot(trajectory['times']/60, number_mean_diameters*1e9, '-r', label='modeled')
 nmean.set_xlim(-10, 130)
 nmean.set_xticks(np.arange(0, 140, 20))
 nmean.set_ylim(80, 140)
@@ -297,15 +229,20 @@ comp.text(0, 0.25, '50%', ha='center', va='center', fontsize=legend_fontsize, co
 comp.text(0, 0.75, '50%', ha='center', va='center', fontsize=legend_fontsize, color='k')
 comp.bar([-10], [0.25], color='none', edgecolor='none', label=' ')
 
+IEPOX_OS_mass = np.sum(trajectory['particles'][-1,:,np.where(trajectory['particle species']=='IEPOX_OS')[0][0]]*trajectory['particles'][-1,:,np.where(trajectory['particle species']=='num conc')[0][0]])
+tetrol_mass = np.sum(trajectory['particles'][-1,:,np.where(trajectory['particle species']=='tetrol')[0][0]]*trajectory['particles'][-1,:,np.where(trajectory['particle species']=='num conc')[0][0]])
+olig_mass = np.sum(trajectory['particles'][-1,:,np.where(trajectory['particle species']=='tetrol_olig')[0][0]]*trajectory['particles'][-1,:,np.where(trajectory['particle species']=='num conc')[0][0]])
+total_mass = IEPOX_OS_mass+tetrol_mass+olig_mass
+
 bottom = 0
 comp.bar([1], [IEPOX_OS_mass/total_mass], bottom=[bottom], color='b', edgecolor='k', label='IEPOX OS')
 comp.text(1, bottom + 0.5*(IEPOX_OS_mass/total_mass), str(int(100*IEPOX_OS_mass/total_mass))+'%', ha='center', va='center', fontsize=legend_fontsize, color='w')
 bottom += IEPOX_OS_mass/total_mass
-comp.bar([1], [tetrol_olig_mass/total_mass], bottom=[bottom], color='darkorange', edgecolor='k', label='tetrol oligomer')
-comp.text(1.6, bottom + 0.5*(tetrol_olig_mass/total_mass), str(int(100*tetrol_olig_mass/total_mass))+'%', ha='center', va='center', fontsize=legend_fontsize, color='k')
-bottom += tetrol_olig_mass/total_mass
+comp.bar([1], [olig_mass/total_mass], bottom=[bottom], color='darkorange', edgecolor='k', label='tetrol oligomer')
+comp.text(1.6, bottom + 0.5*(olig_mass/total_mass), str(int(100*olig_mass/total_mass))+'%', ha='center', va='center', fontsize=legend_fontsize, color='k')
+bottom += olig_mass/total_mass
 comp.bar([1], [tetrol_mass/total_mass], bottom=[bottom], color='w', edgecolor='k', label='tetrol')
-comp.text(1, bottom + 0.5*(tetrol_mass/total_mass), str(100-int(100*IEPOX_OS_mass/total_mass)-int(100*tetrol_olig_mass/total_mass))+'%', ha='center', va='center', fontsize=legend_fontsize, color='k')
+comp.text(1, bottom + 0.5*(tetrol_mass/total_mass), str(100-int(100*IEPOX_OS_mass/total_mass)-int(100*olig_mass/total_mass))+'%', ha='center', va='center', fontsize=legend_fontsize, color='k')
 comp.set_ylabel('SOA Mass Fraction', font=fontname, fontsize=axis_label_fontsize, labelpad=15)
 comp.set_xticks([0, 1])
 comp.set_xticklabels(['measured', 'modeled'])
@@ -314,187 +251,28 @@ comp.legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.15), frameon=False, pro
 comp.text(-0.16, 1.15, 'C', transform=comp.transAxes, font=fontname, fontsize=1.5*axis_label_fontsize)
     
 MeanDp_fig.savefig('SizeDists.png', dpi=200, bbox_inches='tight')
-
-
 plt.show()
+
+
+# SO4_idx=np.where(trajectory['particle species']=='SO4')[0][0]
+# HSO4_idx=np.where(trajectory['particle species']=='HSO4')[0][0]
+# H2SO4_idx=np.where(trajectory['particle species']=='H2SO4')[0][0]
+# NH4_idx=np.where(trajectory['particle species']=='H2SO4')[0][0]
+# print(np.sum(trajectory['particles'][0,:,SO4_idx]+trajectory['particles'][0,:,NH4_idx]))
+# print(np.sum(trajectory['particles'][-1,:,SO4_idx]+trajectory['particles'][-1,:,NH4_idx]))
+# print(model_Dps[-1]-model_Dps[0])
+
+# plt.plot(trajectory['times'], trajectory['particles'][:,:,NH4_idx],'-b')
+# plt.plot(trajectory['times'], trajectory['particles'][:,:,SO4_idx],'-g')
+# plt.plot(trajectory['times'], trajectory['particles'][:,:,np.where(trajectory['particle species']=='H2SO4')[0][0]],'-r')
+
+# plt.yscale('log')
+# plt.show()
+
+
+# STOP HERE
 
 '''
-# %% plot the uptake resistors
-
-published_data = pd.read_excel('published_data.xls', sheet_name='Gammas_AS') 
-
-IEPOX.plot(published_data['time'], published_data['IEPOX'], 'ro', label='Zhang et. al. 2023')
-IEPOX.set_yscale('log')
-IEPOX.set_ylabel(r'$\gamma_{IEPOX}$', fontsize=axis_label_fontsize, labelpad=10)
-IEPOX.set_ylim(1e-5, 1e-4)
-
-resistors.plot(published_data['time'], published_data['1/coat'], 'wo', mec='r', label='Zhang et. al. 2023')
-resistors.plot(published_data['time'], published_data['1/aq'], 'ro', label='Zhang et. al. 2023')
-resistors.set_yscale('log')
-resistors.set_ylabel('uptake resisitors', fontsize=axis_label_fontsize, labelpad=10)
-resistors.set_xlabel('time (minutes)', fontsize=axis_label_fontsize, labelpad=10)
-resistors.set_ylim(1e-1, 1e6)
-
-pH.plot(published_data['time'], published_data['Hplus conc'], 'wo', mec='r', label='Zhang et. al. 2023')
-pH.set_yscale('log')
-pH.set_ylim(1e-2, 1e1)
-
-particle = AS_trajectory_ensemble[0].parcel_states[0].particle_population.particles[17]
-
-
-model_time = np.zeros(len(AS_trajectory_ensemble[0].parcel_states))
-model_Gamma_aq_inv = np.zeros(len(AS_trajectory_ensemble[0].parcel_states))
-model_Gamma_org_inv = np.zeros(len(AS_trajectory_ensemble[0].parcel_states))
-model_Gamma_IEPOX = np.zeros(len(AS_trajectory_ensemble[0].parcel_states))
-model_pH = np.zeros(len(AS_trajectory_ensemble[0].parcel_states))
-
-for ii in range(len(AS_trajectory_ensemble[0].parcel_states)):
-    model_time[ii]=AS_trajectory_ensemble[0].ts[ii]
-    particle = AS_trajectory_ensemble[0].parcel_states[ii].particle_population.particles[17]
-    model_pH[ii] = particle.get_pH()
-    
-    # get the aqueous concentrations
-    water_volume = particle.get_vol_tot()-particle.get_vol_dry()
-    Caq = np.empty(0)
-    aq_names = Dict.empty(key_type=types.unicode_type, value_type=types.int32)
-    for jj, (species) in enumerate(particle.species):
-        aq_names[species.name]=jj
-        Caq=np.append(Caq, (particle.masses[particle.get_species_idx(species.name)]/species.molar_mass)/water_volume) # mol/m^3
-    
-    # these are needed if there is IEPOX condensation
-    V_Org = 0
-    for species, mass in zip(particle.species, particle.masses):
-        if species.name in ['IEPOX_OS', 'tetrol', 'tetrol_olig', 'OC']:
-            V_Org += mass/species.density
-    V_NonOrg = particle.get_vol_dry() - V_Org
-    h2o_NonOrg_radius = ((3*(water_volume+V_NonOrg))/(4.0*np.pi))**(1.0/3.0)
-    inorg_radius = ((3*V_NonOrg)/(4.0*np.pi))**(1.0/3.0)
-    radius = particle.get_Dwet()/2.0
-    l_org = radius-h2o_NonOrg_radius # m
-    
-    for jj, (name) in enumerate(aq_names):
-        if name == 'H2O':
-            H2O_conc = 0.001*Caq[jj] # mol/L
-        elif name == 'H+':
-            Hplus_conc = 0.001*Caq[jj] # mol/L
-        elif name == 'HSO4':
-            HSO4_conc = 0.001*Caq[jj] # mol/L
-        elif name == 'NH4':
-            NH4_conc = 0.001*Caq[jj] # mol/L
-        elif name == 'SO4':
-            SO4_conc = 0.001*Caq[jj] # mol/L
-    
-    if 'HSO4' not in aq_names:
-        HSO4_conc = 0
-    if 'NH4' not in aq_names:
-        NH4_conc = 0
-    if 'SO4' not in aq_names:
-        SO4_conc = 0
-        
-    kaqs = [1.8e-4, 2.62e-6, 6.2e-8, 1.91e-4]
-    kaq = kaqs[0]*Hplus_conc*H2O_conc + kaqs[1]*HSO4_conc*H2O_conc + kaqs[2]*NH4_conc*H2O_conc + kaqs[3]*Hplus_conc*SO4_conc # 1/s
-    
-    T = AS_trajectory_ensemble[0].parcel_states[ii].T
-    S = AS_trajectory_ensemble[0].parcel_states[ii].S
-    V = (4.0/3.0)*np.pi*radius**3 # m^3
-    
-    Haq=5.5e14*(1000/101325) # mol/m^3 Pa, AS: 3.0e4*(1000/101325)
-    Horg=5.5E6*(1000/101325) # mol/m^3 Pa, AS: 2.0e3*(1000/101325)
-    
-    Ap = 4.0*np.pi*radius**2 # m^2
-    w = np.sqrt((8*c.R*T)/(np.pi*118e-3)) # thermal velocity, m/s
-    Dg = (1/100**2)*1.9*np.power(118e-3, (-2/3)) # m^2/s
-    Gamma_aq_inv = (4*V*c.R*T*Haq*kaq)/(Ap*w) # unitless
-    Eta_org=6.92448e9*np.exp(-2.48362e1*S) # Pa*s (fit of table S3 in "Effect of the Aerosol-Phase State on Secondary Organic Aerosol Formation from the Reactive Uptake of Isoprene-Derived Epoxydiols (IEPOX)")
-    Dorg=(1.380649E-23*T)/(6*np.pi*1e-10*Eta_org)
-    Gamma_org_inv = ((w*l_org)/(4*c.R*T*Horg*Dorg))*(radius/inorg_radius)
-    Gamma_IEPOX = np.power(((w*radius)/(4.0*Dg))+(1/0.001)+Gamma_aq_inv+Gamma_org_inv, -1.0)
-    
-    model_Gamma_aq_inv[ii]=Gamma_aq_inv
-    model_Gamma_org_inv[ii]=Gamma_org_inv
-    model_Gamma_IEPOX[ii]=Gamma_IEPOX    
-
-for ii in range(len(model_time)):
-    print(model_time[ii], model_Gamma_aq_inv[ii], model_Gamma_org_inv[ii])
-
-IEPOX.plot(model_time/60, model_Gamma_IEPOX, '-r', label='simulated')
-resistors.plot(model_time/60, model_Gamma_org_inv, '--r', label='simulated')
-resistors.plot(model_time/60, model_Gamma_aq_inv, '-r', label='simulated')
-
-pH.plot(model_time/60, 10**(-1.0*model_pH), '-r')
-
-
-Gamma_fig.savefig('TEST.png', bbox_inches='tight')
-plt.show()
-
-
-
-
-# %% ABS runs
-
-# ABS
-S0 = 0.58
-T0 = 297
-P0 = 101325
-pH0 = -0.9
-
-def optimize_friction_velocity(ts, mu):
-    
-    print(mu)
-    # fit the measured initial AS size distribution
-    published_data = pd.read_excel('published_data.xls', sheet_name='SizeDists_ABS')               
-    measured_Ddrys = dry_SizeDist(np.array((published_data['Dp (t=0)']))*1e-9, 'ABS', S0, T0, P0, pH0)
-    idx = np.where(abs(measured_Ddrys) > 0)
-    measured_Ddrys = measured_Ddrys[idx[0]]
-    Ddrys = np.array((measured_Ddrys))
-    Ns = np.array((published_data['N (t=0)']*100**3))
-    idx = np.where(Ns<0)
-    Ns[idx[0]]=0
-    
-    trajectory_ensemble = simulate_IEPOX_chemistry(mu,
-            t_end=7200.0, dt=30.0, updraft_velocity=0.0,
-            Ddry=Ddrys, Ntot=Ns,
-            S0=S0, P0=P0, T0=T0,pH0=pH0,
-            accom=1., verbosity=50,
-            species_names=['AS'], mass_fractions=np.array([1.]),
-            gas_names=['IEPOX'], gas_conc=[1.0],
-            radius_scale='lin',solver='CVODE',
-            specdata_path='species_data/', mechanism_data_path='mechanisms/',
-            condensation = True, 
-            collisions = False, settling = False,
-            cocondensation = True, chemistry = ['IEPOX'], freezing = False) # kg/m^3/s
-
-    model_time = np.zeros(len(trajectory_ensemble[0].parcel_states))
-    model_Ntot = np.zeros(len(trajectory_ensemble[0].parcel_states))
-    for ii,(parcelstate) in enumerate(trajectory_ensemble[0].parcel_states):
-        particle_population=parcelstate.particle_population
-        model_time[ii]=trajectory_ensemble[0].ts[ii]/60 # minutes
-        Dps = np.zeros(len(particle_population.particles))
-        Ns = np.zeros(len(particle_population.particles))
-        for jj,(particle,num_conc) in enumerate(zip(particle_population.particles, particle_population.num_concs)):
-            Ns[jj]=num_conc # 1/m^3
-            Dps[jj]=particle.get_Dwet()
-        model_Ntot[ii]=trapz(Ns/100**3, x=np.log10(Dps)) # 1/cm^3
-        
-    output_Ntot = np.zeros(len(ts))
-    for ii in range(len(ts)):
-        output_Ntot[ii]=np.interp(ts[ii], xp=model_time, fp=model_Ntot)
-        
-    return output_Ntot*1e3
-    
-published_data = pd.read_excel('published_data.xls', sheet_name='wall_losses_ABS')      
-p0 = 0.7939091250408041
-pars, cov = curve_fit(optimize_friction_velocity, xdata=published_data['minutes'], ydata=published_data['Ntot'], p0=p0)
-mu_star = pars[0]
-
-plt.plot(published_data['minutes'], published_data['Ntot'], 'ro')
-ts = np.linspace(0, 120, 1000)
-Ntot = optimize_friction_velocity(ts, pars[0])
-plt.plot(ts, Ntot, '-k')
-plt.show()
-
-print('mu =', mu_star)
-
 # %% do the ABS runs
 
 mu_star = 0.45161100602630655

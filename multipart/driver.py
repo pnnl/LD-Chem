@@ -190,7 +190,6 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
     
     #sys.stdout = open('output.log', 'w')
 
-    
     if not les_output_file:
         with open('RUN_PROGRESS.out', 'a') as f:
             print('WARNING: No LES file specified!', file=f)
@@ -245,8 +244,8 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
                 water_volume=particle.get_vol_tot()-particle.get_vol_dry()
                 NO3_conc=(particle.masses[particle.get_species_idx('NO3')]/particle.species[particle.get_species_idx('NO3')].molar_mass)/water_volume
                 Hplus_conc=(particle.masses[particle.get_species_idx('H+')]/particle.species[particle.get_species_idx('H+')].molar_mass)/water_volume
-                HNO3_conc=(NO3_conc*Hplus_conc)/1000.0
-                particle.masses[particle.get_species_idx('HNO3')]=HNO3_conc*particle.species[particle.get_species_idx('HNO3')].molar_mass*water_volume
+                HNO3_conc=(NO3_conc*Hplus_conc)/15.625
+                particle.masses[particle.get_species_idx('HNO3')]=HNO3_conc*particle.species[particle.get_species_idx('HNO3')].molar_mass*water_volume    
     
     # equilibrate the co-condensing species
     # if scenario.trajectories_settings[0].gas0 and processes.cocondensation:
@@ -261,7 +260,7 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
     #                 particle.masses[particle.get_species_idx(gas.name)]=Mx
     
     
-    # particle=scenario.trajectories_settings[0].population0.particles[2]
+    # particle=scenario.trajectories_settings[0].population0.particles[0]
     # for ii, (species) in enumerate(particle.species):
     #     print(species.name, particle.masses[ii])
     # sys.exit()
@@ -284,15 +283,16 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
         f.write('in progress')
         f.close()
         
-        #with open('RUN_PROGRESS.out', 'a') as f:
-        print('')#, file=f)
-        print('Running trajectory', output_filename[-10:-4]+',', len(N_concs),'particles...')#, file=f)
+        with open('RUN_PROGRESS.out', 'a') as f:
+            print('', file=f)
+            print('Running trajectory', output_filename[-10:-4]+',', len(N_concs),'particles...', file=f)
         
         counter=0
         for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
+        # for (t1,t2) in zip(t_eval[:99],t_eval[1:100]):
             steptime0 = time.time()
             
-            original_ParcelState = copy.deepcopy(ParcelState_0) # keep this for mole balance at end of time step
+            # original_ParcelState = copy.deepcopy(ParcelState_0) # keep this for mole balance at end of time step
             
             ParcelState_Next = update_state(t1, t2,
                 ParcelState_0, processes, dt,
@@ -300,7 +300,7 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
                 accom=accom, verbosity=verbosity,
                 mechanism_data_path=mechanism_data_path,
                 aq_reactions=aq_reactions, gas_reactions=gas_reactions,
-                rtol=1e-7, atol=1e-14)
+                rtol=1e-4, atol=1e-8) # 1e-7, 1e-14            
             
             # adjust the number concentration based on the new temperature and pressure
             Ns=np.array(ParcelState_0.particle_population.num_concs)
@@ -309,18 +309,18 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
             
             # check that the moles of water in the system is consistent
             # (needs to happen before mass transfer with background)
-            if processes.condensation:
-                utilities.water_mole_balance(original_ParcelState, ParcelState_Next)            
+            #if processes.condensation:
+            #    utilities.water_mole_balance(original_ParcelState, ParcelState_Next)            
             
             # get new air state from LES
             ParcelState_Next=air_from_les(ParcelState_Next, processes, t2, one_trajectory_settings, 
                                           relaxation_time, dt, solver, gas_data, LES_gases, 
                                           rtol=1e-4, atol=1e-8)
-
+            
             # print timestep and time for timestep
             counter+=1
-            #with open('RUN_PROGRESS.out', 'a') as f:
-            print(str(counter)+'/'+str(len(t_eval))+' -- '+str(round(time.time() - steptime0, 2))+ 's/it')#, file=f)
+            with open('RUN_PROGRESS.out', 'a') as f:
+                print(str(counter)+'/'+str(len(t_eval))+' -- '+str(round(time.time() - steptime0, 2))+ 's/it', file=f)
 
             
             # check for NaNs
@@ -328,11 +328,9 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
             for particle, num_conc in zip(ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs):
                 total_mass.append(num_conc*np.sum(particle.masses))
             
-            #with open('RUN_PROGRESS.out', 'a') as f:
-            print(str(ParcelState_Next.S)+' '+str(1e9*np.sum(np.array(total_mass))))#, file=f)
-            
-            # utilities.water_mole_balance(original_ParcelState, ParcelState_Next)
-            print('')#, file=f)
+            with open('RUN_PROGRESS.out', 'a') as f:
+                print(str(ParcelState_Next.S)+' '+str(1e9*np.sum(np.array(total_mass))), file=f)
+                print('', file=f)
                     
             # kill the program if there is a NaN
             if np.isnan(np.sum(total_mass)):
@@ -351,20 +349,18 @@ def simulate_les_trajectories(les_output_file=None, output_path=None,
                 f.write('in progress')
                 f.close()
                 overwrite(t2, ParcelState_0, output_filename, specdata_path=specdata_path)
-                ParcelState_dict = {'time': t2, 'parcel state': ParcelState_Next, 'dt':dt, 'accom':accom, 'verbosity':verbosity, 'radius_scale':radius_scale, 'solver':solver, 'specdata_path':specdata_path, 'mechanism_data_path':mechanism_data_path, 'processes':processes, 'write_every':write_every,'one_trajectory_settings':one_trajectory_settings, 'aq_reactions':aq_reactions, 'gas_data':gas_data, 'relaxation_time':relaxation_time}
+                ParcelState_dict = {'time': t2, 'parcel state': ParcelState_Next, 'dt':dt, 'accom':accom, 'verbosity':verbosity, 'radius_scale':radius_scale, 'solver':solver, 'specdata_path':specdata_path, 'mechanism_data_path':mechanism_data_path, 'processes':processes, 'write_every':write_every,'one_trajectory_settings':one_trajectory_settings, 'aq_reactions':aq_reactions, 'gas_reactions':gas_reactions,
+                    'gas_data':gas_data, 'relaxation_time':relaxation_time}
                 pickle.dump(ParcelState_dict, open(restart_filename, 'wb'))
                 last_written=t2
             
             #pbar.update(1)
         #pbar.close()
         
-        #with open('RUN_PROGRESS.out', 'a') as f:
-        print('')#, file=f)
-        print('Solving time:', round(time.time() - runtime0, 2), 'seconds')#, file=f)
-        # print('Maximum saturation ratio:', parcel_trajectory.get_max_S())#, file=f)
-        # print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')#, file=f)
-        # print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')#, file=f)
-        print('')#, file=f)
+        with open('RUN_PROGRESS.out', 'a') as f:
+            print('', file=f)
+            print('Solving time:', round(time.time() - runtime0, 2), 'seconds', file=f)
+            print('', file=f)
         
         f = open(status_filename, 'w')
         f.write('complete')
@@ -391,14 +387,16 @@ def restart_les_trajectories(output_path=None, ParcelState_file=None, trajectory
     processes=data['processes']
     write_every=data['write_every']
     aq_reactions=data['aq_reactions']
+    gas_reactions=data['gas_reactions']
     gas_data=data['gas_data']
     relaxation_time=data['relaxation_time']
+    LES_gases=list(gas_data.keys())
     
     trajectory_ensemble = []
     runtime0 = time.time()
-    #with open('RUN_PROGRESS.out', 'w') as f:
-    print('Restarting trajectory', trajectory_file[-10:-4]+',', len(ParcelState_0.particle_population.particles),'particles...')#, file=f)
-    print('')#, file=f)
+    with open('RUN_PROGRESS.out', 'w') as f:
+        print('Restarting trajectory', trajectory_file[-10:-4]+',', len(ParcelState_0.particle_population.particles),'particles...', file=f)
+        print('', file=f)
     
     Ntimes = int((t_end - t_start)/dt + 1)
     t_eval = np.linspace(t_start, t_end, Ntimes)
@@ -412,80 +410,77 @@ def restart_les_trajectories(output_path=None, ParcelState_file=None, trajectory
     #pbar = tqdm.tqdm(total = len(t_eval))
     counter=0
     for (t1,t2) in zip(t_eval[:-1],t_eval[1:]):
-        steptime0 = time.time()
-                                
-        original_ParcelState = copy.deepcopy(ParcelState_0) # keep this for mole balance at end of time step
+            steptime0 = time.time()
             
-        ParcelState_Next = update_state(t1, t2,
-            ParcelState_0, processes, dt,
-            radius_scale=radius_scale,solver=solver,
-            accom=accom, verbosity=verbosity,
-            mechanism_data_path=mechanism_data_path,
-            aq_reactions=aq_reactions, rtol=1e-6, atol=1e-12)
+            # original_ParcelState = copy.deepcopy(ParcelState_0) # keep this for mole balance at end of time step
             
-        # adjust the number concentration based on the new temperature and pressure
-        Ns=np.array(ParcelState_0.particle_population.num_concs)
-        Ns*=((ParcelState_Next.P*ParcelState_0.T)/(ParcelState_0.P*ParcelState_Next.T))
-        ParcelState_Next.particle_population.num_concs=list(Ns)
+            ParcelState_Next = update_state(t1, t2,
+                ParcelState_0, processes, dt,
+                radius_scale=radius_scale,solver=solver,
+                accom=accom, verbosity=verbosity,
+                mechanism_data_path=mechanism_data_path,
+                aq_reactions=aq_reactions, gas_reactions=gas_reactions,
+                rtol=1e-4, atol=1e-8) # 1e-7, 1e-14
             
-        # check that the moles of water in the system is consistent
-        # (needs to happen before mass transfer with background)
-        if processes.condensation:
-            utilities.water_mole_balance(original_ParcelState, ParcelState_Next)
+            # adjust the number concentration based on the new temperature and pressure
+            Ns=np.array(ParcelState_0.particle_population.num_concs)
+            Ns*=((ParcelState_Next.P*ParcelState_0.T)/(ParcelState_0.P*ParcelState_Next.T))
+            ParcelState_Next.particle_population.num_concs=list(Ns)
             
-        # get new air state from LES
-        ParcelState_Next=air_from_les(ParcelState_Next, processes, t2, one_trajectory_settings, relaxation_time, dt, solver, gas_data, rtol=1e-4, atol=1e-8)
-        
-        # print timestep and time for timestep
-        counter+=1
-        
-        #with open('RUN_PROGRESS.out', 'a') as f:
-        print(str(counter)+'/'+str(len(t_eval))+' -- '+str(round(time.time() - steptime0, 2))+ 's/it')#, file=f)
-        
-        # check for NaNs
-        total_mass = []
-        for particle, num_conc in zip(ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs):
-            idx_OS=particle.get_species_idx('IEPOX_OS')
-            idx_tet=particle.get_species_idx('tetrol')
-            idx_olig=particle.get_species_idx('tetrol_olig')
-            total_mass.append(num_conc*np.sum(particle.masses))
+            # check that the moles of water in the system is consistent
+            # (needs to happen before mass transfer with background)
+            #if processes.condensation:
+            #    utilities.water_mole_balance(original_ParcelState, ParcelState_Next)
+            
+            # get new air state from LES
+            ParcelState_Next=air_from_les(ParcelState_Next, processes, t2, one_trajectory_settings,
+                                          relaxation_time, dt, solver, gas_data, LES_gases,
+                                          rtol=1e-4, atol=1e-8)
+            
+            # print timestep and time for timestep
+            counter+=1
+            with open('RUN_PROGRESS.out', 'a') as f:
+                print(str(counter)+'/'+str(len(t_eval))+' -- '+str(round(time.time() - steptime0, 2))+ 's/it', file=f)
 
-        #with open('RUN_PROGRESS.out', 'a') as f:
-        print(str(ParcelState_Next.S)+' '+str(1e9*np.sum(np.array(total_mass))))#, file=f)
-        print('')#, file=f)
-                
-        # kill the program if there is a NaN
-        if np.isnan(np.sum(total_mass)):
-            print('ERROR')
-            f = open(status_filename, 'w')
-            f.write('killed (NaNs)')
-            f.close()
-            sys.exit()
-        
-        # update parcel state
-        ParcelState_0=ParcelState_Next
-        
-        # write backup files
-        if t2-last_written>=write_every:
-            f = open(status_filename, 'w')
-            f.write('in progress')
-            f.close()
-
-            overwrite(t2, ParcelState_0, output_filename, specdata_path=specdata_path)
-            ParcelState_dict = {'time': t2, 'parcel state': ParcelState_Next, 'dt':dt, 'accom':accom, 'verbosity':verbosity, 'radius_scale':radius_scale, 'solver':solver, 'specdata_path':specdata_path, 'mechanism_data_path':mechanism_data_path, 'processes':processes, 'write_every':write_every,'one_trajectory_settings':one_trajectory_settings, 'aq_reactions':aq_reactions, 'gas_data':gas_data}
-            pickle.dump(ParcelState_dict, open(restart_filename, 'wb'))
-            last_written=t2
+            
+            # check for NaNs
+            total_mass = []
+            for particle, num_conc in zip(ParcelState_Next.particle_population.particles, ParcelState_Next.particle_population.num_concs):
+                total_mass.append(num_conc*np.sum(particle.masses))
+            
+            with open('RUN_PROGRESS.out', 'a') as f:
+                print(str(ParcelState_Next.S)+' '+str(1e9*np.sum(np.array(total_mass))), file=f)
+                print('', file=f)
+                    
+            # kill the program if there is a NaN
+            if np.isnan(np.sum(total_mass)):
+                print('ERROR')
+                f = open(status_filename, 'w')
+                f.write('killed (NaNs)')
+                f.close()
+                sys.exit()
+            
+            # update parcel state
+            ParcelState_0=ParcelState_Next
+            
+            # write backup files
+            if t2-last_written>=write_every:
+                f = open(status_filename, 'w')
+                f.write('in progress')
+                f.close()
+                overwrite(t2, ParcelState_0, output_filename, specdata_path=specdata_path)
+                ParcelState_dict = {'time': t2, 'parcel state': ParcelState_Next, 'dt':dt, 'accom':accom, 'verbosity':verbosity, 'radius_scale':radius_scale, 'solver':solver, 'specdata_path':specdata_path, 'mechanism_data_path':mechanism_data_path, 'processes':processes, 'write_every':write_every,'one_trajectory_settings':one_trajectory_settings, 'aq_reactions':aq_reactions, 'gas_reactions':gas_reactions,
+                    'gas_data':gas_data, 'relaxation_time':relaxation_time}
+                pickle.dump(ParcelState_dict, open(restart_filename, 'wb'))
+                last_written=t2
         
         #pbar.update(1)
     #pbar.close()
     
-    #with open('RUN_PROGRESS.out', 'a') as f:
-    print('')#, file=f)
-    print('Solving time:', round(time.time() - runtime0, 2), 'seconds')#, file=f)
-    # print('Maximum saturation ratio:', parcel_trajectory.get_max_S())#, file=f)
-    # print('Average cloud droplet diameter:', np.round(2.0*1e6*parcel_trajectory.get_avg_droplet_radius(),4), 'micron')#, file=f)
-    # print('Activated fraction:', str(np.round(100*parcel_trajectory.get_activated_fraction(),3))+'%')#, file=f)
-    print('')#, file=f)
+    with open('RUN_PROGRESS.out', 'a') as f:
+        print('', file=f)
+        print('Solving time:', round(time.time() - runtime0, 2), 'seconds', file=f)
+        print('', file=f)
         
     f = open(status_filename, 'w')
     f.write('complete')

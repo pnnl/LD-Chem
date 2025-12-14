@@ -6,7 +6,6 @@ Created on Wed Oct  2 10:33:11 2024
 @author: beel083
 """
 import numpy as np
-import sys
 import numba as nb
 
 R = 8.314 # m^3*Pa/mol*K
@@ -56,7 +55,7 @@ def dCaq_dt(X, radii, water_volumes, num_concs, molar_mass, alpha, Heff, T):
     return dX_dt
 
 
-@nb.njit()
+#@nb.njit()
 def IEPOX_condensation(X, H2O_concs, Hplus_concs, HSO4_concs, NH4_concs,
                        SO4_concs, radii, T, S, l_orgs, inorganic_radii, 
                        num_concs, water_volumes, molar_mass, alpha):
@@ -74,6 +73,8 @@ def IEPOX_condensation(X, H2O_concs, Hplus_concs, HSO4_concs, NH4_concs,
     Dg = (1/100**2)*1.9*np.power(molar_mass, (-2/3)) # m^2/s
     Gamma_aq_inv = (4*V*R*T*Haq*kaq)/(Ap*w) # unitless
     
+    
+    
     Horg=1.0e3*(1000/101325) # mol/m^3 Pa
     
     Eta_org=6.92448e9*np.exp(-2.48362e1*S) # Pa*s (fit of table S3 in "Effect of the Aerosol-Phase State on Secondary Organic Aerosol Formation from the Reactive Uptake of Isoprene-Derived Epoxydiols (IEPOX)")
@@ -87,15 +88,27 @@ def IEPOX_condensation(X, H2O_concs, Hplus_concs, HSO4_concs, NH4_concs,
       
     return dX_dt # mol/m^3*s
 
-@nb.njit()
-def dCaq_dt_diffusion_limited(X, radii, water_volumes, num_concs, molar_mass, alpha, T, P):
+#@nb.njit()
+def dCaq_dt_diffusion_limited(X, radii, water_volumes, num_concs, molar_mass, alpha, Heff, T, P, Dl_0):
     
     dX_dt = np.zeros(X.shape)
     Cgas = X[0] # mol/m^3
+    Cpart = X[1:]
     Dg = (1/100**2)*1.9*np.power(molar_mass, (-2/3)) # m^2/s
     beta = beta_FS(radii, T, P, alpha)
-    dX_dt[1:] = ((3.0*Dg)/radii**2)*beta*Cgas # mol / m^3 water *s
-    dX_dt[0] = (-1.0*np.sum(dX_dt[1:]*water_volumes*num_concs))#/Cgas # mol / m^3 air 
+    
+    Dl = Dl_0*(T/298)*(water_viscosity(298)/water_viscosity(T)) # m^2/s
+    kl = Dl/radii # m/s
+    Kg = ((radii/(Dg*beta))+((Heff*R*T)/kl))**(-1)
+    dX_dt[1:] = (3.0/radii)*Kg*(Cgas-(Cpart/(Heff*R*T))) # mol / m^3 water *s
+    
+    # well-mixed droplet
+    #dX_dt[1:] = ((3.0*Dg)/radii**2)*beta*(Cgas-(Cpart/(Heff*R*T))) # mol / m^3 water *s
+    
+    # zero concentration at surface
+    #dX_dt[1:] = ((3.0*Dg)/radii**2)*beta*(Cgas-(Cpart/(Heff*R*T))) # mol / m^3 water *s
+    
+    dX_dt[0] = (-1.0*np.sum(dX_dt[1:]*water_volumes*num_concs)) # mol / m^3 air
     
     return dX_dt
     
@@ -126,8 +139,13 @@ def beta_FS(r, T, P, alpha, kB=1.380649e-23, d_air=0.365e-9):
      beta = (1 + Kn) / (1 + (4/(3*alpha) + 0.377)*Kn + (4/(3*alpha))*Kn**2) # Fuchs–Sutugin correction
 
      return beta 
-    
-    
+
+@nb.njit()
+def water_viscosity(T):
+    """Viscosity of water (Pa·s) using the VFT correlation, 273–373 K.
+    Korson, L., Drost-Hansen, W., & Millero, F. J. (1969). Viscosity of Water at Various Temperatures. J. Phys. Chem., 73 (1), 34–39. DOI: 10.1021/j100721a006. """
+    A, B, C = 2.414e-5, 247.8, 140.0
+    return A * np.exp(B / (T - C))
 
 # def cocondensation_wrapper(t, Caq_all, Cgas_all, radius, T, TraceGas_population):
 #     dC_dt_aq = dCaq_dt(Caq_all, Cgas_all, radius, T, TraceGas_population)

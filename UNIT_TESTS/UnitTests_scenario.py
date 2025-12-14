@@ -67,14 +67,14 @@ def create_constant_parcel(
             species_names=['NaCl'],mass_fractions=np.array([1.]),
             gas_names=None, gas_conc=None,
             dt=1.0, specdata_path='../species_data/', mechanism_data_path='../mechamisms/',
-            chemistry=None, cocondensation=False):
+            aq_chemistry=None, cocondensation=False):
     
     if Npart > 1 and sigma == 1.0:
         print('WARNING: Sigma = 1.0 and Npart > 1! Setting Npart to 1 to speed up calculations.')
         Npart = 1
     
-    if chemistry:
-        aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=mechanism_data_path)
+    if aq_chemistry:
+        aq_reactions = make_AqReactions(chemistry=aq_chemistry, mechanism_data_path=mechanism_data_path)
     else:
         aq_reactions = None
         
@@ -92,8 +92,8 @@ def create_constant_parcel(
         if 'H+' not in aero_spec_names:
             aero_spec_names.append('H+')
             aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
-        if 'OH' not in aero_spec_names:
-            aero_spec_names.append('OH')
+        if 'OH-' not in aero_spec_names:
+            aero_spec_names.append('OH-')
             aero_spec_fracs=np.append(aero_spec_fracs, 0.0)
         
         if Npart > 1:
