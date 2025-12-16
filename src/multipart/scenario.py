@@ -92,17 +92,21 @@ def create_parcel_scenario(
         dt=1.0, specdata_path='species_data/',
         mechanism_data_path='mechamisms/', aq_chemistry=None, 
         cocondensation=False, gas_chemistry=False):
-
+    
     # load in the gas reactions
     if gas_chemistry:
         gas_reactions = make_GasReactions(mechanism_data_path=mechanism_data_path)
     else:
         gas_reactions = None
-
+    
     # make sure all species involved in gas reactions are included in gas_concs and gas_names
-    gas_names = list(gas_names)
-    gas_concs = list(gas_concs)
     if cocondensation or gas_chemistry:
+        if gas_names:
+            gas_names = list(gas_names)
+            gas_concs = list(gas_concs)
+        else:
+            gas_names= []
+            gas_concs = []
         if gas_reactions:
             for reaction in gas_reactions.reactions:
                 for reactant in reaction.reactants:
@@ -152,7 +156,7 @@ def create_parcel_scenario(
                             species_masses=np.hstack((species_masses, np.zeros((len(num_concs),1)))) 
     else:
         aq_reactions=None   
-
+    
     # make sure that soluble gases are included in species_names and species_masses
     if TraceGas_population and cocondensation:
         for gas in TraceGas_population.gases:
@@ -172,7 +176,7 @@ def create_parcel_scenario(
     assert len(num_concs) == len(species_masses)
     assert len(species_names) == species_masses.shape[1]
     assert len(pHs) == len(species_masses)
-
+    
     # turn the species names and masses into particles
     ids = [ii for ii in range(len(species_masses))]
     aero_specs = []
@@ -237,9 +241,9 @@ def create_les_scenario(num_concs=np.array([1e6]),
         gas_reactions = None
 
     # make sure all species involved in gas reactions are included in gas_concs and gas_names
-    gas_names = []
-    gas_concs = []
     if cocondensation or gas_chemistry:
+        gas_names= []
+        gas_concs = []
         if gas_data is not None:
             for gas in gas_data.keys():
                 gas_names.append(gas)

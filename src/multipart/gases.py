@@ -65,15 +65,14 @@ def retrieve_gas_species(name, specdata_path='../species_data/'):
 
 
 def equilibrate_gases(aerosol_population,TraceGas_population,T,P):
-    
+    radii = 0.5*aerosol_population.get_particle_var('wet_diameter')
+    dry_radii = 0.5*aerosol_population.get_particle_var('dry_diameter')
+    water_volumes = (4.0/3.0)*np.pi*(radii**3-dry_radii**3)
     for gas, gas_conc in zip(TraceGas_population.gases, TraceGas_population.concs):
-        if gas.name != 'IEPOX':
+        if gas.name != 'IEPOX':           
+            idx = aerosol_population.get_species_idx(gas.name)
             Caq_x = gas_conc*1e-9*P*gas.get_Heff(T)  # mol/m^3
-            for i,(particle,num_conc) in enumerate(zip(aerosol_population.particles,aerosol_population.num_concs)):
-                water_volume = particle.get_vol_tot()-particle.get_vol_dry() # m^3            
-                idx = particle.get_species_idx(gas.name)
-                if idx and particle.species[idx].density==0:
-                    particle.masses[idx]=water_volume*Caq_x*particle.species[idx].molar_mass
+            aerosol_population.spec_masses[:,idx]=water_volumes*Caq_x*aerosol_population.species[idx].molar_mass
     return aerosol_population
 
 def make_TraceGasPopulation(gas_names, gas_conc, specdata_path='species_data/'):

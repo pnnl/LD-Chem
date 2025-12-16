@@ -290,15 +290,25 @@ def air_from_les(ParcelState_0, processes, t2,
             X0 = ParcelState_0.gas.concs
             X_env = np.zeros(X0.shape)
             H2O_x=H2O_mole_fraction(ParcelState_Next.S,ParcelState_Next.T,ParcelState_Next.P)
-            for ii, (gas) in enumerate(ParcelState_0.gas.gases):
-                if gas.name in driver.TraceGas_data.keys():
-                    X_env[ii]=np.interp(t2, driver.t_data, driver.TraceGas_data[gas.name])
-                elif gas.name == 'N2':
-                    X_env[ii]=1e9*0.7808*(1-H2O_x)
-                elif gas.name == 'O2':
-                    X_env[ii]=1e9*0.2095*(1-H2O_x)
-                else:
-                    X_env[ii]=0.0
+            if driver.TraceGas_data is not None:
+                for ii, (gas) in enumerate(ParcelState_0.gas.gases):
+                    if gas.name in driver.TraceGas_data.keys():
+                        X_env[ii]=np.interp(t2, driver.t_data, driver.TraceGas_data[gas.name])
+                    elif gas.name == 'N2':
+                        X_env[ii]=1e9*0.7808*(1-H2O_x)
+                    elif gas.name == 'O2':
+                        X_env[ii]=1e9*0.2095*(1-H2O_x)
+                    else:
+                        X_env[ii]=0.0
+            else:
+                for ii, (gas) in enumerate(ParcelState_0.gas.gases):
+                    if gas.name == 'N2':
+                        X_env[ii]=1e9*0.7808*(1-H2O_x)
+                    elif gas.name == 'O2':
+                        X_env[ii]=1e9*0.2095*(1-H2O_x)
+                    else:
+                        X_env[ii]=0.0
+
 
             rhs = lambda t, X_parcel: (1/relaxation_time)*(X_env-X_parcel)
             ode15s = ode(rhs).set_integrator('lsoda', method='bdf', rtol=rtol, atol=atol, nsteps=5000)

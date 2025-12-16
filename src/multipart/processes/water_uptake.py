@@ -134,7 +134,7 @@ def dr_dt(r_i, r_dry_i, kappa_i, P, T, S, accom):
 
 
 ## RHS Derivative callback function
-@nb.njit(parallel=True)
+@nb.njit()
 @auxcc.export("dlnr_dt", "f8(f8, f8, f8, f8, f8, f8, f8, f8)")
 def dlnr_dt(lnr_i, r_dry_i, kappa_i, P, T, S, accom=1.0):
 # oneparticle_ode_sys(x, t, r_dry_i, N_i, kappa_i, P, T, s, wv, accom=1.):#, add_Seq=False):

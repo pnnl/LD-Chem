@@ -1,0 +1,2 @@
+include src/multipart/species_data/*.dat
+recursive-include examples *

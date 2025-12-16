@@ -186,7 +186,7 @@ def simulate_parcel(
                 f.close()
         warnings.warn('No species data path specified; using default values.', UserWarning)
         specdata_path = str(Path(__file__).resolve().parent)+"/species_data/"
-
+    
     ParcelState_0, aq_reactions, gas_reactions = create_parcel_scenario(
         num_concs=num_concs, pHs=pHs,
         species_names=aero_spec_names, species_masses=aero_spec_masses,
@@ -289,6 +289,7 @@ def simulate_parcel(
         with open(progress_filename, 'a') as f:
             print(print('Solving time:', round(time.time() - runtime0, 2), 'seconds', file=f))
             f.close()
+    
     return 
 
 

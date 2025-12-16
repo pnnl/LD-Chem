@@ -18,3 +18,7 @@ flake8
 [docs]
 sphinx
 sphinx-rtd-theme
+
+[test]
+pytest>=6.0
+pytest-cov>=4
