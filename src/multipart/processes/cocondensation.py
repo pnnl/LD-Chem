@@ -9,6 +9,7 @@ import numpy as np
 import numba as nb
 from dataclasses import dataclass
 from scipy.integrate import ode
+from typing import Tuple
 
 R = 8.314 # m^3*Pa/mol*K
 

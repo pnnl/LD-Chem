@@ -34,7 +34,8 @@ dependencies = [
     "numba",
     "pyyaml",
     "mat73",
-    "setuptools"
+    "setuptools",
+    "part2pop"
 ]
 
 [project.optional-dependencies]
