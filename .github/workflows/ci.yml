@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["payton-dev"]
   pull_request:
-    branches: ["main"]
+    branches: ["payton-dev"]
 
 jobs:
   unit-tests:
@@ -47,10 +47,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   integration-tests:
-    name: Integration tests (main & PRs only)
+    name: Integration tests (payton-dev & PRs only)
     runs-on: ubuntu-latest
     needs: unit-tests
-    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
+    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/payton-dev' }}
 
     steps:
       - name: Checkout repository

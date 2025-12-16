@@ -54,9 +54,9 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/PNNL-MultiPart/multipart"
-Documentation = "https://github.com/PNNL-MultiPart/multipart"
-Repository = "https://github.com/PNNL-MultiPart/multipart.git"
+Homepage = "https://github.com/lfierce2/multipart_archived"
+Documentation = "https://github.com/lfierce2/multipart_archived"
+Repository = "https://github.com/lfierce2/multipart_archived.git"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
