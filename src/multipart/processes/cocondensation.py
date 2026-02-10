@@ -212,7 +212,7 @@ def cocondensation_solver(population0, gas_population, P, T, S,
                     SO4_concs, radii, T, S, l_orgs, inorganic_radii, 
                     population0.num_concs, water_volumes, gas.molar_mass, gas.alpha)
             
-            # these are super soluble and fully dissociate, so 
+            # these are super soluble, so 
             # assume that mass transfer is diffusion limited
             elif gas.name in ['HNO3', 'H2SO4']:
                 if gas.name == 'HNO3':
