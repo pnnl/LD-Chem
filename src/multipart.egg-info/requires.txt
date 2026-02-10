@@ -8,6 +8,7 @@ numba
 pyyaml
 mat73
 setuptools
+part2pop
 
 [dev]
 pytest>=6.0

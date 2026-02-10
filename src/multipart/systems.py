@@ -10,8 +10,10 @@ from numba.typed import Dict
 from numba import types
 from .processes import water_uptake, air_thermo, cocondensation, gas_chemistry, aqueous_chemistry
 from .processes.air_thermo import S_to_wv, H2O_mole_fraction #, compute_thermo_props, wv_to_S, 
+from .processes.cocondensation import GasFeedback
 import multipart.constants as c
 from scipy.integrate import ode
+from typing import Tuple
 
 @dataclass
 class Processes:

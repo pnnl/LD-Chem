@@ -287,10 +287,9 @@ def simulate_parcel(
             print('Solving time:', round(time.time() - runtime0, 2), 'seconds')
     else:
         with open(progress_filename, 'a') as f:
-            print(print('Solving time:', round(time.time() - runtime0, 2), 'seconds', file=f))
+            print('Solving time:', round(time.time() - runtime0, 2), 'seconds', file=f)
             f.close()
-    
-    return 
+    return
 
 
 

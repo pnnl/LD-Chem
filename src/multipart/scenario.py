@@ -6,13 +6,14 @@ simulation scenarios.
 
 from dataclasses import dataclass
 import numpy as np
-from .Reactions import make_AqReactions, make_GasReactions
+from .reactions import make_AqReactions, make_GasReactions
 from .particles import retrieve_one_species
 from part2pop.population import ParticlePopulation
-from .gases import make_TraceGasPopulation
+from .gases import TraceGasPopulation, make_TraceGasPopulation
 from scipy.optimize import fminbound
 from .processes.air_thermo import H2O_mole_fraction
 import multipart.constants as c
+from typing import Optional
 
 @dataclass
 class LagrangianElement: 
