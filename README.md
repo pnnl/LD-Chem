@@ -1,11 +1,11 @@
 [![CI](https://github.com/lfierce2/multipart_archived/actions/workflows/ci.yml/badge.svg)](https://github.com/lfierce2/multipart_archived/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/lfierce2/multipart_archived/branch/payton-dev/graph/badge.svg )](https://codecov.io/gh/lfierce2/multipart_archived)
 
-# multipart
+# Lgarangian Droplets with Chemistry Model (LD-Chem)
 
 > A Python toolkit for simulating aqueous chemistry and cloud-aerosol processes in individual particles.
 
-`multipart` is a lightweight Python library that provides a framework for simulating activation of particles into cloud droplets, aqueous chemistry, gas chemistry, and gas-particle mass transfer. The framework can be run in two modes: adiabatic parcel and LES. Adiabatic parcel simulations are driven by a user-defined constant updraft velocity. LES simulations can be run at any scale (despite the name "large eddy simulation"). They are driven by time series of position, saturation ratio, temperature, pressure, and trace gas concentrations (if available). The framework enables reproducible process-level investigations if aerosol-cloud interactions.
+`multipart` is a lightweight Python library that provides a framework for simulating activation of particles into cloud droplets, aqueous chemistry, gas chemistry, and gas-particle mass transfer. The framework can be run in two modes: adiabatic parcel and LES. Adiabatic parcel simulations are driven by a user-defined constant updraft velocity. LES simulations can be run at any scale (despite the name "large eddy simulation"). They are driven by time series of position, saturation ratio, temperature, pressure, and trace gas concentrations (if available). The framework enables reproducible process-level investigations if aerosol-cloud interactions. This model is an extension of the Lagrangian Droplets model, which can be found at https://github.com/lfierce2/LagrangianDroplets/.
 
 ---
 
