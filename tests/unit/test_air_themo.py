@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from multipart.processes.air_thermo import es, S_to_wv, H2O_gas_conc, H2O_mole_fraction, compute_thermo_props
+from ld_chem.processes.air_thermo import es, S_to_wv, H2O_gas_conc, H2O_mole_fraction, compute_thermo_props
 
 
 def test_es():

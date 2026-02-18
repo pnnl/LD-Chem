@@ -14,7 +14,7 @@ aerosol population.
 
 
 """
-from multipart.run import simulate_les_trajectory, restart_trajectory
+from ld_chem.run import simulate_les_trajectory, restart_trajectory
 from part2pop.population import build_population 
 import numpy as np
 import pickle
@@ -23,25 +23,15 @@ import pickle
 # Define an 2-mode lognormal aerosol population using part2pop
 # First mode: Pure sulfate
 # Second mode: Pure organics
-
-# pop_cfg = {
-#     "type": "binned_lognormals",
-#     "N": [1e9, 1e9],  # number concentration of each mode (m^-3)
-#     "GMD": [150e-9, 150e-9],  # geometric mean diameter of each mode (m)
-#     "GSD": [1.6, 1.6],  # geometric standard deviation of each mode
-#     "aero_spec_names": [["SO4"],["OC"]], # two modes of externally mixed aerosols
-#     "aero_spec_fracs": [[1.0], [1.0]], # mass fraction of each species in each particle
-#     "N_bins": 10,  # number of bins to discretize the population
-#     "N_sigmas": 5, # D_range is +/- 5 geometric standard deviations
-#     "species_modifications": {"OC": {"density": 1200}}, # modify default density of OC to 1200 kg/cm^3
-#     }
-
 pop_cfg = {
-    "type": "monodisperse",
-    "N": [1e9],  # number concentration of each mode (m^-3)
-    "D": [100e-9],  # geometric mean diameter of each mode (m)
-    "aero_spec_names": [["OC", "BC"]], # two modes of externally mixed aerosols
-    "aero_spec_fracs": [[0.8, 0.2]], # mass fraction of each species in each particle
+    "type": "binned_lognormals",
+    "N": [1e9, 1e9],  # number concentration of each mode (m^-3)
+    "GMD": [150e-9, 150e-9],  # geometric mean diameter of each mode (m)
+    "GSD": [1.6, 1.6],  # geometric standard deviation of each mode
+    "aero_spec_names": [["SO4"],["OC"]], # two modes of externally mixed aerosols
+    "aero_spec_fracs": [[1.0], [1.0]], # mass fraction of each species in each particle
+    "N_bins": 10,  # number of bins to discretize the population
+    "N_sigmas": 5, # D_range is +/- 5 geometric standard deviations
     "species_modifications": {"OC": {"density": 1200}}, # modify default density of OC to 1200 kg/cm^3
     }
 
@@ -85,7 +75,7 @@ plt.show()
 
 spec_idx = np.where(data['particle species']=='Dwet')[0][0]
 mode1_idx = np.where(data['particles'][0,:,np.where(data['particle species']=='SO4')[0][0]]>0)[0] # pick out only the sulfate particles
-mode2_idx = np.where(data['particles'][0,:,np.where(data['particle species']=='OC')[0][0]]>0)[0] # pick out only the organic particles
+mode2_idx = np.where(data['particles'][0,:,np.where(data['particle species']=='BC')[0][0]]>0)[0] # pick out only the organic particles
 for i, idx in enumerate(mode1_idx):
     plt.plot(data['times'], data['particles'][:,idx,spec_idx], '-r', label='pure sulfate mode' if i == 0 else "")
 for i, idx in enumerate(mode2_idx):

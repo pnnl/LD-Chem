@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from multipart.processes.cocondensation import (
+from ld_chem.processes.cocondensation import (
     dCaq_dt, IEPOX_condensation, dCaq_dt_diffusion_limited,
     beta_FS, water_viscosity, cocondensation_solver
 )

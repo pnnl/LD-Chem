@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from pathlib import Path
-from multipart.Reactions import (
+from ld_chem.reactions import (
     AqReaction, GasReaction, AqueousReactions, GasReactions,
     make_AqReactions, make_GasReactions
 )
@@ -122,7 +122,7 @@ def test_gas_reactions_creation():
 def test_make_aq_reactions():
     """Test creation of AqueousReactions from file."""
     # Path to mechanisms directory from test file location
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
 
     chemistry = ["sulfate"]
     aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=str(mechanisms_path) + "/")
@@ -143,7 +143,7 @@ def test_make_aq_reactions():
 
 def test_make_gas_reactions():
     """Test creation of GasReactions from file."""
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
 
     # make_GasReactions doesn't use chemistry parameter like make_AqReactions
     gas_reactions = make_GasReactions(mechanism_data_path=str(mechanisms_path) + "/")

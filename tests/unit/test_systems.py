@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import warnings
-from multipart.systems import Processes, Feedbacks
+from ld_chem.systems import Processes, Feedbacks
 
 
 def test_processes_creation():

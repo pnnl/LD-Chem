@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from multipart.utilities import (
+from ld_chem.utilities import (
     check_gas_condensation, check_water_condensation,
     check_mass_balance, check_gas_chemistry
 )

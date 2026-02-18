@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from numba.typed import Dict
 from numba import types
-from multipart.processes.aqueous_chemistry import (
+from ld_chem.processes.aqueous_chemistry import (
     dCaq_dt, O3_sulfur_oxidation_rate, H2O2_sulfur_oxidation_rate,
     NO2_sulfur_oxidation_rate, HNO2_sulfur_oxidation_rate,
     O2_sulfur_oxidation_rate, IEPOX_OH_chemistry

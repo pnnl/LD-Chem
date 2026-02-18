@@ -1,10 +1,10 @@
 import pytest, warnings
 import numpy as np
 from pathlib import Path
-from multipart.particles import retrieve_one_species
-from multipart.gases import make_TraceGasPopulation
+from ld_chem.particles import retrieve_one_species
+from ld_chem.gases import make_TraceGasPopulation
 from part2pop.population import ParticlePopulation
-from multipart.gases import (
+from ld_chem.gases import (
     GasSpecies, TraceGasPopulation, retrieve_gas_species,
     equilibrate_gases, make_TraceGasPopulation
 )
@@ -108,8 +108,8 @@ def test_trace_gas_population_clone_detached():
 def test_retrieve_gas_species():
     """Test gas species data retrieval from file."""
     # Path to species_data directory from test file location
-    # tests/objects/test_gases.py -> ../../src/multipart/species_data/
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    # tests/objects/test_gases.py -> ../../src/ld_chem/species_data/
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
     
     # Test with a known species from gas_data.dat
     gas = retrieve_gas_species("SO2", specdata_path=str(species_data_path) + "/")
@@ -128,7 +128,7 @@ def test_retrieve_gas_species():
 def test_make_trace_gas_population():
     """Test creation of TraceGasPopulation from names and concentrations."""
     # Path to species_data directory from test file location
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
     
     gas_names = ["SO2", "O3"]
     gas_concs = [1e-6, 2e-6]
@@ -147,7 +147,7 @@ def test_make_trace_gas_population():
 
 def test_equilibrate_gases():
     """Test gas-aerosol equilibration."""
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
     aero_spec_names = np.array(["OC", "H2O", "SO2"])
     species_masses = np.array([[1e-10, 1e-10, 0.0]])
     num_concs = np.array([1e6])

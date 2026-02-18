@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from pathlib import Path
-from multipart.particles import AerosolSpecies, retrieve_one_species
+from ld_chem.particles import AerosolSpecies, retrieve_one_species
 
 
 def test_aerosol_species_creation():
@@ -24,8 +24,8 @@ def test_aerosol_species_creation():
 def test_retrieve_one_species():
     """Test aerosol species data retrieval from file."""
     # Path to species_data directory from test file location
-    # tests/objects/test_particles.py -> ../../src/multipart/species_data/
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    # tests/objects/test_particles.py -> ../../src/ld_chem/species_data/
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
     # Test with a known species from aero_data.dat
     species = retrieve_one_species("SO4", specdata_path=str(species_data_path) + "/")
@@ -45,7 +45,7 @@ def test_retrieve_one_species():
 
 def test_retrieve_one_species_custom_surface_tension():
     """Test aerosol species retrieval with custom surface tension."""
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
     custom_surface_tension = 0.08
     species = retrieve_one_species(
         "SO4",

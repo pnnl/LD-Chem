@@ -2,12 +2,12 @@ import pytest
 import numpy as np
 import warnings
 from pathlib import Path
-from multipart.scenario import (
+from ld_chem.scenario import (
     LagrangianElement, LagrangianElementDriver,
     create_parcel_scenario, create_les_scenario
 )
-from multipart.particles import AerosolSpecies
-from multipart.gases import GasSpecies, TraceGasPopulation
+from ld_chem.particles import AerosolSpecies
+from ld_chem.gases import GasSpecies, TraceGasPopulation
 
 
 def test_lagrangian_element_creation():
@@ -103,8 +103,8 @@ def test_create_parcel_scenario_basic():
     species_masses = np.array([[1e-25, 1e-25]])
 
     # Get paths
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
     # Test basic scenario creation
     with warnings.catch_warnings():
@@ -137,8 +137,8 @@ def test_create_parcel_scenario_with_cocondensation():
     gas_names = ['SO2']
     gas_concs = [1e-6]
 
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore") # ignore divide by zero warnings
@@ -170,8 +170,8 @@ def test_create_parcel_scenario_with_gas_chemistry():
     gas_names = ['SO2']
     gas_concs = [1e-6]
 
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore") # ignore divide by zero warnings
@@ -204,8 +204,8 @@ def test_create_parcel_scenario_with_aqueous_chemistry():
     gas_names = None
     gas_concs = None
 
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore") # ignore divide by zero warnings
@@ -249,8 +249,8 @@ def test_create_les_scenario_basic():
         's': np.array([0.85, 0.85])
     }
 
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
@@ -291,8 +291,8 @@ def test_create_les_scenario_with_cocondensation():
         'gas': {'SO2': np.array([1.0, 1.0])}
     }
 
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
@@ -332,8 +332,8 @@ def test_create_les_scenario_with_gas_chemistry():
         'gas': None
     }
 
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
@@ -373,8 +373,8 @@ def test_create_les_scenario_with_aqueous_chemistry():
         'gas': None
     }
 
-    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-    species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")

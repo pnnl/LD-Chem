@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-import multipart.constants as c
+import ld_chem.constants as c
 
 def test_gravitational_constant():
     """Test gravitational constant."""

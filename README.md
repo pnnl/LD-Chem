@@ -12,8 +12,8 @@
 ## Installation
 
 ```bash
-git clone git@github.com:lfierce2/multipart_archived.git
-cd part2pop
+git clone git@github.com:lfierce2/LD-Chem.git
+cd LD-Chem
 pip install -e .
 ```
 ---

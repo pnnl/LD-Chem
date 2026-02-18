@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from multipart.processes.gas_chemistry import dCgas_dt
+from ld_chem.processes.gas_chemistry import dCgas_dt
 
 
 def test_dCgas_dt_basic():

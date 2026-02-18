@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import warnings, tempfile, os
 from pathlib import Path
-from multipart.run import simulate_parcel, simulate_les_trajectory, restart_trajectory
+from ld_chem.run import simulate_parcel, simulate_les_trajectory, restart_trajectory
 
 pytestmark = pytest.mark.integration
 

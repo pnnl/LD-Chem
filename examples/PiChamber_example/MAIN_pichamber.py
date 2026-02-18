@@ -13,7 +13,7 @@ converted to numpy arrays. This example will use part2pop to define the initial
 aerosol population.
 
 """
-from multipart.run import simulate_les_trajectory, restart_trajectory
+from ld_chem.run import simulate_les_trajectory, restart_trajectory
 from part2pop.population import build_population 
 import numpy as np
 import pickle

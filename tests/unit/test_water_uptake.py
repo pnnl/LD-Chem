@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from multipart.processes.water_uptake import (
+from ld_chem.processes.water_uptake import (
     sigma_w, ka, dv, es, Seq, dr_dt, dlnr_dt
 )
 
