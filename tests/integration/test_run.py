@@ -5,8 +5,6 @@ from pathlib import Path
 from ld_chem.run import simulate_parcel, simulate_les_trajectory, restart_trajectory
 
 pytestmark = pytest.mark.integration
-
-
 def test_simulate_parcel_basic_parameters():
     """Test simulate_parcel with basic parameters."""
     # Set up minimal test data
@@ -21,8 +19,8 @@ def test_simulate_parcel_basic_parameters():
         restart_filename = os.path.join(temp_dir, 'test_restart.pkl')
         status_filename = os.path.join(temp_dir, 'test_status')
         progress_filename = os.path.join(temp_dir, 'test_progress.out')
-        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-        species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+        species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
         # Test that function can be called without errors (smoke test)
         # Note: This will actually run a simulation, so we use minimal parameters
@@ -73,8 +71,8 @@ def test_simulate_parcel_gas_chem():
         restart_filename = os.path.join(temp_dir, 'test_restart.pkl')
         status_filename = os.path.join(temp_dir, 'test_status')
         progress_filename = os.path.join(temp_dir, 'test_progress.out')
-        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-        species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+        species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
         # Test that function can be called without errors (smoke test)
         # Note: This will actually run a simulation, so we use minimal parameters
@@ -126,8 +124,8 @@ def test_simulate_parcel_cocondensation():
         restart_filename = os.path.join(temp_dir, 'test_restart.pkl')
         status_filename = os.path.join(temp_dir, 'test_status')
         progress_filename = os.path.join(temp_dir, 'test_progress.out')
-        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-        species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+        species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
         # Test that function can be called without errors (smoke test)
         # Note: This will actually run a simulation, so we use minimal parameters
@@ -180,8 +178,8 @@ def test_simulate_parcel_aqueous_chem():
         restart_filename = os.path.join(temp_dir, 'test_restart.pkl')
         status_filename = os.path.join(temp_dir, 'test_status')
         progress_filename = os.path.join(temp_dir, 'test_progress.out')
-        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-        species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+        species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
         # Test that function can be called without errors (smoke test)
         # Note: This will actually run a simulation, so we use minimal parameters
@@ -276,8 +274,8 @@ def test_simulate_les_basic_parameters():
         restart_filename = os.path.join(temp_dir, 'test_restart.pkl')
         status_filename = os.path.join(temp_dir, 'test_status')
         progress_filename = os.path.join(temp_dir, 'test_progress.out')
-        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-        species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+        species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
         # Test that function can be called without errors (smoke test)
         # Note: This will actually run a simulation, so we use minimal parameters
@@ -319,8 +317,8 @@ def test_simulate_les_gas_chem():
         restart_filename = os.path.join(temp_dir, 'test_restart.pkl')
         status_filename = os.path.join(temp_dir, 'test_status')
         progress_filename = os.path.join(temp_dir, 'test_progress.out')
-        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-        species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+        species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
         # Test that function can be called without errors (smoke test)
         # Note: This will actually run a simulation, so we use minimal parameters
@@ -363,8 +361,8 @@ def test_simulate_les_cocondensation():
         restart_filename = os.path.join(temp_dir, 'test_restart.pkl')
         status_filename = os.path.join(temp_dir, 'test_status')
         progress_filename = os.path.join(temp_dir, 'test_progress.out')
-        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-        species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+        species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
         # Test that function can be called without errors (smoke test)
         # Note: This will actually run a simulation, so we use minimal parameters
@@ -406,8 +404,8 @@ def test_simulate_les_aqueous_chem():
         restart_filename = os.path.join(temp_dir, 'test_restart.pkl')
         status_filename = os.path.join(temp_dir, 'test_status')
         progress_filename = os.path.join(temp_dir, 'test_progress.out')
-        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "mechanisms"
-        species_data_path = Path(__file__).parent.parent.parent / "src" / "multipart" / "species_data"
+        mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+        species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
 
         # Test that function can be called without errors (smoke test)
         # Note: This will actually run a simulation, so we use minimal parameters
