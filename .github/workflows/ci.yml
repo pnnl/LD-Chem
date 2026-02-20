@@ -5,6 +5,8 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  schedule:
+    - cron: '0 0 * * 0'
 
 jobs:
   unit-tests:
@@ -52,7 +54,7 @@ jobs:
     name: Integration tests (main & PRs only)
     runs-on: ubuntu-latest
     needs: unit-tests
-    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
 
     steps:
       - name: Checkout repository
