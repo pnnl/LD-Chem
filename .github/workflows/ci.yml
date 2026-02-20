@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["payton-dev"]
+    branches: ["main"]
   pull_request:
-    branches: ["payton-dev"]
+    branches: ["main"]
 
 jobs:
   unit-tests:
