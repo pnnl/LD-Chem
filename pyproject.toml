@@ -34,7 +34,7 @@ dependencies = [
     "pyyaml",
     "mat73",
     "setuptools",
-    "part2pop @ git+https://github.com/pnnl/part2pop.git@features/LDchem_integration"
+    "part2pop @ git+https://github.com/pnnl/part2pop.git@main"
 ]
 
 [project.optional-dependencies]
