@@ -123,6 +123,7 @@ The default aqueous-phase reactions are defined in `src/ld_chem/mechanisms/aq_re
 | `group` | Reaction classification/mechanism name | - |
 
 The temperature-dependent reaction rate is calculated as:
+
 $$k(T) = k_0 \cdot \exp\left(\frac{\Delta H}{R}\left(\frac{1}{T} - \frac{1}{298}\right)\right)$$
 
 Default aqueous chemistry groups include:
@@ -146,8 +147,9 @@ Gas-phase reactions are defined in `src/ld_chem/mechanisms/gas_reactions.dat` wi
 
 Four temperature-dependent rate forms are supported:
 
-- **`exp`**: Arrhenius-like temperature dependence
-  $$k(T) = k_0 \cdot \exp\left(\frac{\Delta E}{T}\right)$$
+- **`exp`**: Arrhenius-like temperature dependence 
+
+$$k(T) = k_0 \cdot \exp\left(\frac{\Delta E}{T}\right)$$
 
 - **`power`**: Power-law temperature dependence
   $$k(T) = k_0 \cdot \left(\frac{T}{300}\right)^n$$
@@ -156,6 +158,7 @@ Four temperature-dependent rate forms are supported:
   Accounts for N₂/H₂O collision broadening and high-pressure limits
 
 - **`HO2_water_enhancement`**: Water-enhanced HO₂ self-reaction specific to atmospheric conditions
+
   $$k = (k_1 + k_2) \cdot \left(1 + 8.4 \times 10^{-4} [H_2O] \exp(2200/T)\right)$$
 
 ### Custom Mechanisms
@@ -180,6 +183,12 @@ Example using Option 1:
 ```python
 from ld_chem import simulate_parcel
 
+# define aerosol properties (single organic particle)
+aero_spec_names=[['OC']]
+aero_spec_masses=[[1.0]]
+num_concs=[1e6]
+pHs=[3.0]
+
 # Run a parcel simulation with the default sulfate mechanisms
 simulate_parcel(
     aero_spec_names, aero_spec_masses, num_concs, pHs,
@@ -192,6 +201,12 @@ simulate_parcel(
 Example using Option 2:
 ```python
 from ld_chem import simulate_parcel
+
+# define aerosol properties (single organic particle)
+aero_spec_names=[['OC']]
+aero_spec_masses=[[1.0]]
+num_concs=[1e6]
+pHs=[3.0]
 
 # Point to custom mechanism directory
 simulate_parcel(

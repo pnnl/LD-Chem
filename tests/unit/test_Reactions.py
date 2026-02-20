@@ -13,12 +13,12 @@ def test_aq_reaction_creation():
         reactants=["SO2"],
         products=["HSO3", "H+"],
         rate0=5.0e5,
-        neg_dH_R=1960.0
+        neg_Ea_R=1960.0
     )
     assert reaction.reactants == ["SO2"]
     assert reaction.products == ["HSO3", "H+"]
     assert reaction.rate0 == 5.0e5
-    assert reaction.neg_dH_R == 1960.0
+    assert reaction.neg_Ea_R == 1960.0
 
 
 def test_aq_reaction_get_rate():
@@ -27,7 +27,7 @@ def test_aq_reaction_get_rate():
         reactants=["SO2"],
         products=["HSO3", "H+"],
         rate0=5.0e5,
-        neg_dH_R=1960.0
+        neg_Ea_R=1960.0
     )
     T = 298  # 25°C
     rate = reaction.get_rate(T)
@@ -138,7 +138,7 @@ def test_make_aq_reactions():
         assert isinstance(reaction.reactants, list)
         assert isinstance(reaction.products, list)
         assert isinstance(reaction.rate0, float)
-        assert isinstance(reaction.neg_dH_R, float)
+        assert isinstance(reaction.neg_Ea_R, float)
 
 
 def test_make_gas_reactions():

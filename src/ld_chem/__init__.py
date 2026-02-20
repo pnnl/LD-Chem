@@ -15,41 +15,27 @@ __email__ = "laura.fierce@pnnl.gov"
 # Import main components for easy access
 try:
     from .scenario import (
-        # create_scenario_from_DNS,
-        # create_parcel_scenario,
-        # create_hysplit_scenario,
         create_les_scenario,
-        # create_pichamber_scenario,
+        create_parcel_scenario,
         make_AqReactions,
         make_GasReactions,
     )
     from .systems import (
         ParcelState,
         Processes,
-        # update_state,
     )
     from .particles import (
-        ParticlePopulation,
-        # make_particle,
+        ParticlePopulation
     )
-    # from .optics import (
-    #     mie_calculation,
-    # )
     
     __all__ = [
-        # 'create_scenario_from_DNS',
-        # 'create_parcel_scenario',
-        # 'create_hysplit_scenario',
         'create_les_scenario',
-        # 'create_pichamber_scenario',
+        'create_parcel_scenario',
         'make_AqReactions',
         'make_GasReactions',
-        # 'ParcelState',
-        # 'Processes',
-        # 'update_state',
-        # 'ParticlePopulation',
-        # 'make_particle',
-        # 'mie_calculation',
+        'ParcelState',
+        'Processes',
+        'ParticlePopulation',
     ]
 except ImportError as e:
     import warnings

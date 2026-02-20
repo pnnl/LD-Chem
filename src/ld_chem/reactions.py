@@ -21,11 +21,11 @@ class AqReaction:
     reactants: list          # name of the species
     products: list
     rate0: float
-    neg_dH_R: float
+    neg_Ea_R: float
     
     def get_rate(self, T):
         # returns rate at given temperature
-        return self.rate0*np.exp(self.neg_dH_R*((1/T)-(1/298)))  # (mol/m^3^(1-n)/s)
+        return self.rate0*np.exp(self.neg_Ea_R*((1/T)-(1/298)))  # (mol/m^3^(1-n)/s)
 
 @dataclass(frozen=True)
 class GasReaction:
@@ -95,14 +95,14 @@ def make_AqReactions(chemistry=None, mechanism_data_path='mechanisms/'):
         while ii < Nreactions:
             with open(reaction_datafile) as data_file:
                 for line in data_file:
-                    reactants,products,rate,dH_R,group = line.split()
+                    reactants,products,rate,Ea_R,group = line.split()
                     if group in chemistry:
                         reactants=reactants.split(',')
                         products=products.split(',')
                         OneReaction = AqReaction(reactants=reactants,
                                                  products=products,
                                                  rate0=float(rate),
-                                                 neg_dH_R=float(dH_R))
+                                                 neg_Ea_R=float(Ea_R))
                         reactions[ii]=OneReaction
                         ids[ii]=ii
                         ii+=1

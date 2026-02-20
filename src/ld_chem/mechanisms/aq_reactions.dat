@@ -1,4 +1,4 @@
-reactants            products                       rate_(mol/m3^(1-n)/s)   -dH/R_(K)    group
+reactants            products                       rate_(mol/m3^(1-n)/s)   -Ea/R_(K)    group
 SO2                  HSO3,H+                        5.0E5                   1960         sulfate
 HSO3,H+              SO2                            3.85E4                  1960         sulfate
 HSO3                 SO3,H+                         5.0E5                   1500         sulfate
