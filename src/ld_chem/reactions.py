@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Sep 30 13:58:24 2024
+
+@author: beel083
+"""
+
+from dataclasses import dataclass
+from typing import Tuple
+import numpy as np
+import sys
+import ld_chem.constants as c
+from .processes.air_thermo import H2O_gas_conc, es
+
+@dataclass(frozen=True)
+class AqReaction:
+    """Reaction: the definition of an aqueous
+    phase reaction. Aqueous reaction rates have units
+    of M^(1-n)/s."""
+    reactants: list          # name of the species
+    products: list
+    rate0: float
+    neg_Ea_R: float
+    
+    def get_rate(self, T):
+        # returns rate at given temperature
+        return self.rate0*np.exp(self.neg_Ea_R*((1/T)-(1/298)))  # (mol/m^3^(1-n)/s)
+
+@dataclass(frozen=True)
+class GasReaction:
+    """Reaction: the definition of a gas
+    phase reaction. Gas phase reaction rates have units
+   of (molec/cm^3)^(1-n)/s."""
+    reactants: list          # name of the species
+    products: list
+    rate0: float
+    high_P_limit: float
+    T_dependence: float
+    form: str
+    
+    def get_rate(self, S, T, P):
+        # returns rate at a given temperature
+        if self.form == 'power':
+            return self.rate0*(T/300)**self.T_dependence
+        elif self.form == 'exp':
+            return self.rate0*np.exp(self.T_dependence/T)
+        elif self.form == 'troe':
+            
+            X_H2O = (S*es(T-273.15))/P
+            
+            k0_N2 = self.rate0*(T/300)**self.T_dependence
+            k0_H2O = 1.65e-32*3.63e35*(T/300)**(-4.9)
+            k0_mix = (1-X_H2O)*k0_N2+X_H2O*k0_H2O
+            k_inf = self.high_P_limit
+            M = P/(c.R*T)
+            Pr = (k0_mix*M)/k_inf
+            logFc = np.log10(0.58)
+            N = 0.75 - 1.27 * logFc
+            logPr = np.log10(Pr)
+            denom = 1.0 + (logPr / N)**2
+            F = 10.0**(logFc / denom)
+            return (F*k0_mix*M)/(1+((k0_mix*M)/k_inf))
+        elif self.form == 'HO2_water_enhancement':
+            H2O_conc = H2O_gas_conc(S,T,P)
+            N2_conc = 0.7808*((P/(c.R*T))-H2O_conc)
+            k1 = 1.32e5*np.exp(600/T)
+            k2 = 6.9e2*N2_conc*np.exp(980/T)
+            return (k1+k2)*(1.0+8.4e-4*H2O_conc*np.exp(2200/T))
+            
+@dataclass
+class AqueousReactions:
+    """EquilibriumReactions: the definition of which aqueous reactions
+    are accounted for in the model"""
+    reactions: Tuple[AqReaction, ...]
+    ids: Tuple[int, ...]
+    
+@dataclass
+class GasReactions:
+    reactions: Tuple[AqReaction, ...]
+    ids: Tuple[int, ...]
+    
+def make_AqReactions(chemistry=None, mechanism_data_path='mechanisms/'):
+    reaction_datafile = mechanism_data_path + 'aq_reactions.dat'
+    Nreactions=0
+    with open(reaction_datafile) as data_file:
+        for line in data_file:
+            reactants,products,rate,dH_R,group = line.split()
+            if group in chemistry:
+                Nreactions+=1
+    if Nreactions > 0:
+        reactions = [None]*Nreactions
+        ids = [None]*Nreactions
+        ii=0
+        while ii < Nreactions:
+            with open(reaction_datafile) as data_file:
+                for line in data_file:
+                    reactants,products,rate,Ea_R,group = line.split()
+                    if group in chemistry:
+                        reactants=reactants.split(',')
+                        products=products.split(',')
+                        OneReaction = AqReaction(reactants=reactants,
+                                                 products=products,
+                                                 rate0=float(rate),
+                                                 neg_Ea_R=float(Ea_R))
+                        reactions[ii]=OneReaction
+                        ids[ii]=ii
+                        ii+=1
+    else:
+        reactions = None
+        ids = None
+    return AqueousReactions(reactions=reactions, ids=ids)
+
+
+
+def make_GasReactions(chemistry=None, mechanism_data_path='mechanisms/'):
+    reaction_datafile = mechanism_data_path + 'gas_reactions.dat'
+    Nreactions=0
+    with open(reaction_datafile) as data_file:
+        for line in data_file:
+            reactants,products,rate,highP_limit,T_dependence,form = line.split()
+            Nreactions+=1
+    Nreactions-=1 # gets rid of the header
+    if Nreactions > 0: 
+        reactions = [None]*Nreactions
+        ids = [None]*Nreactions
+        ii=0
+        while ii < Nreactions:
+            with open(reaction_datafile) as data_file:
+                for line in data_file:
+                    reactants,products,rate,highP_limit,T_dependence,form = line.split()
+                    if form in ['power', 'exp', 'troe', 'HO2_water_enhancement']:
+                        reactants=reactants.split(',')
+                        products=products.split(',')
+                        OneReaction = GasReaction(reactants=reactants,
+                                                  products=products,
+                                                  rate0=float(rate),
+                                                  high_P_limit=float(highP_limit),
+                                                  T_dependence=float(T_dependence),
+                                                  form=str(form))                        
+                        reactions[ii]=OneReaction
+                        ids[ii]=ii
+                        ii+=1 
+    else:
+        reactions = None
+        ids = None  
+    return GasReactions(reactions=reactions, ids=ids)
