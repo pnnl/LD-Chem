@@ -29,13 +29,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build pytest pytest-cov
 
-      - name: Install multipart
+      - name: Install LD-Chem
         run: |
           python -m pip install -e .
 
       - name: Run unit tests with coverage
         run: |
-          pytest tests/unit --cov=multipart --cov-report=xml --cov-report=term
+          pytest tests/unit --cov=ld_chem --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
         if: ${{ matrix.python-version == '3.11' }}
@@ -67,7 +67,7 @@ jobs:
           python -m pip install git+https://github.com/pnnl/part2pop.git
           python -m pip install build pytest
 
-      - name: Build and install multipart
+      - name: Build and install LD-Chem
         run: |
           python -m build
           python -m pip install dist/*.whl
