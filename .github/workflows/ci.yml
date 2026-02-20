@@ -45,7 +45,7 @@ jobs:
           flags: unittests
           name: codecov-umbrella
           verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: a5c1d4e6-98be-428f-bc5e-c84555b70c0c
           fail_ci_if_error: false
 
   integration-tests:
