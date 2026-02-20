@@ -2,8 +2,19 @@ import pytest
 import numpy as np
 from ld_chem.processes.cocondensation import (
     dCaq_dt, IEPOX_condensation, dCaq_dt_diffusion_limited,
-    beta_FS, water_viscosity, cocondensation_solver
+    beta_FS, water_viscosity, cocondensation_solver, GasFeedback
 )
+
+
+def test_gasfeedback_dataclass():
+    """Test GasFeedback dataclass creation."""
+    names = ("CO2", "SO2")
+    dc_dts = np.array([1.0, 2.0])
+    feedback = GasFeedback(names=names, dc_dts=dc_dts)
+    
+    assert feedback.names == names
+    assert np.allclose(feedback.dc_dts, dc_dts)
+    assert len(feedback.names) == len(feedback.dc_dts)
 
 
 def test_dCaq_dt():
@@ -16,7 +27,6 @@ def test_dCaq_dt():
     alpha = 0.1
     Heff = 1e5  # mol/m^3/Pa
     T = 298.15
-    P = 101325
     result = dCaq_dt(X, radii, water_volumes, num_concs, molar_mass, alpha, Heff, T)
     
     assert isinstance(result, np.ndarray)

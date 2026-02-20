@@ -35,16 +35,18 @@ jobs:
 
       - name: Run unit tests with coverage
         run: |
-          pytest tests/unit --cov=ld_chem --cov-report=xml --cov-report=term
+          pytest tests/unit --cov=src/ld_chem --cov-config=.coveragerc --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage to Codecov
-        if: ${{ matrix.python-version == '3.11' }}
-        uses: codecov/codecov-action@v5
+        if: ${{ matrix.python-version == '3.11' && secrets.CODECOV_TOKEN != '' }}
+        uses: codecov/codecov-action@v4
         with:
-          files: ./coverage.xml
+          file: ./coverage.xml
           flags: unittests
+          name: codecov-umbrella
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   integration-tests:
     name: Integration tests (payton-dev & PRs only)
