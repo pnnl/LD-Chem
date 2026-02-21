@@ -124,7 +124,7 @@ The default aqueous-phase reactions are defined in `src/ld_chem/mechanisms/aq_re
 
 The temperature-dependent reaction rate is calculated as:
 
-$$k(T) = k_0 \cdot \exp\left(\frac{E_a}{R}\left(\frac{1}{T} - \frac{1}{298}\right)\right)$$
+$$k(T) = k_0 \cdot \exp\left(\frac{-E_a}{R}\left(\frac{1}{T} - \frac{1}{298}\right)\right)$$
 
 Default aqueous chemistry groups include:
 - `sulfate` - SO₂ and sulfuric acid chemistry
@@ -142,14 +142,14 @@ Gas-phase reactions are defined in `src/ld_chem/mechanisms/gas_reactions.dat` wi
 | `products` | Comma-separated list of product species | - |
 | `rate` | Pre-exponential rate constant | (molec/cm³)^(1-n)/s |
 | `high_P_limit` | High pressure limit (Troe reactions only) | (molec/cm³)^(1-n)/s |
-| `T_dependence` | Temperature dependence parameter | K or dimensionless |
+| `T_dependence` | Temperature dependence parameter; equal to $E_a/R$ for Arrhenius-type and $n$ for power-law type | K or dimensionless |
 | `form` | Functional form of temperature dependence | - |
 
 Four temperature-dependent rate forms are supported:
 
 - **`exp`**: Arrhenius-like temperature dependence 
 
-$$k(T) = k_0 \cdot \exp\left(\frac{\Delta E}{T}\right)$$
+$$k(T) = k_0 \cdot \exp\left(\frac{-E_a}{RT}\right)$$
 
 - **`power`**: Power-law temperature dependence
 
