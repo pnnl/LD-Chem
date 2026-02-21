@@ -119,12 +119,12 @@ The default aqueous-phase reactions are defined in `src/ld_chem/mechanisms/aq_re
 | `reactants` | Comma-separated list of reactant species | - |
 | `products` | Comma-separated list of product species | - |
 | `rate` | Pre-exponential rate constant | mol/m³^(1-n)/s |
-| `-dH/R` | Negative enthalpy of reaction divided by gas constant | K |
+| `-Ea/R` | Negative activation energy divided by gas constant | K |
 | `group` | Reaction classification/mechanism name | - |
 
 The temperature-dependent reaction rate is calculated as:
 
-$$k(T) = k_0 \cdot \exp\left(\frac{\Delta H}{R}\left(\frac{1}{T} - \frac{1}{298}\right)\right)$$
+$$k(T) = k_0 \cdot \exp\left(\frac{E_a}{R}\left(\frac{1}{T} - \frac{1}{298}\right)\right)$$
 
 Default aqueous chemistry groups include:
 - `sulfate` - SO₂ and sulfuric acid chemistry
@@ -152,6 +152,7 @@ Four temperature-dependent rate forms are supported:
 $$k(T) = k_0 \cdot \exp\left(\frac{\Delta E}{T}\right)$$
 
 - **`power`**: Power-law temperature dependence
+
   $$k(T) = k_0 \cdot \left(\frac{T}{300}\right)^n$$
 
 - **`troe`**: Troe Three-Parameter Fall-off Region (pressure-dependent bimolecular reactions)
