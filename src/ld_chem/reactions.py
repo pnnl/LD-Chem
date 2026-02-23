@@ -46,9 +46,7 @@ class GasReaction:
         elif self.form == 'exp':
             return self.rate0*np.exp(self.T_dependence/T)
         elif self.form == 'troe':
-            
             X_H2O = (S*es(T-273.15))/P
-            
             k0_N2 = self.rate0*(T/300)**self.T_dependence
             k0_H2O = 1.65e-32*3.63e35*(T/300)**(-4.9)
             k0_mix = (1-X_H2O)*k0_N2+X_H2O*k0_H2O
@@ -141,7 +139,5 @@ def make_GasReactions(chemistry=None, mechanism_data_path='mechanisms/'):
                         reactions[ii]=OneReaction
                         ids[ii]=ii
                         ii+=1 
-    else:
-        reactions = None
-        ids = None  
+                        
     return GasReactions(reactions=reactions, ids=ids)

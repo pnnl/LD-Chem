@@ -144,6 +144,15 @@ def test_make_trace_gas_population():
     assert pop.concs[0] == 1e-6
     assert pop.concs[1] == 2e-6
 
+def test_empty_trace_gas_population():
+    """Test TraceGasPopulation creation with empty inputs."""
+    gas_names = []
+    gas_concs = []
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
+    pop = make_TraceGasPopulation(gas_names, gas_concs, specdata_path=str(species_data_path) + "/")
+    assert pop.gases == None
+    assert pop.concs == None
+    assert pop.ids == None
 
 def test_equilibrate_gases():
     """Test gas-aerosol equilibration."""

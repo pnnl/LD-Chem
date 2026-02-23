@@ -100,7 +100,7 @@ def test_create_parcel_scenario_basic():
     num_concs = np.array([1e6])
     pHs = np.array([7.0])
     species_names = np.array(['SO4','H2O'])
-    species_masses = np.array([[1e-25, 1e-25]])
+    species_masses = np.array([[1e-16, 1e-25]])
 
     # Get paths
     mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
@@ -120,12 +120,14 @@ def test_create_parcel_scenario_basic():
             aq_chemistry=None,
             gas_chemistry=False
         )
+        parcel_state.particles.spec_masses[:,parcel_state.particles.get_species_idx("H2O")]*=10000.0
 
-    # Check that we got a LagrangianElement
-    assert isinstance(parcel_state, LagrangianElement)
-    assert parcel_state.particles is not None
-    assert parcel_state.gas is None  # No gas chemistry
-    assert aq_reactions is None  # No aqueous chemistry
+        # Check that we got a LagrangianElement
+        assert isinstance(parcel_state, LagrangianElement)
+        assert parcel_state.particles is not None
+        assert parcel_state.gas is None  # No gas chemistry
+        assert aq_reactions is None  # No aqueous chemistry
+        assert parcel_state.get_activated_fraction() > 0.0  # Should have some activation
 
 
 def test_create_parcel_scenario_with_cocondensation():
@@ -221,7 +223,7 @@ def test_create_parcel_scenario_with_aqueous_chemistry():
             mechanism_data_path=str(mechanisms_path) + "/",
             gas_chemistry=False,
             cocondensation=False,
-            aq_chemistry=['sulfate']
+            aq_chemistry=['sulfate', 'nitrate']
         )
 
     assert isinstance(parcel_state, LagrangianElement)
@@ -386,7 +388,7 @@ def test_create_les_scenario_with_aqueous_chemistry():
             trajectory_data=trajectory_data,
             specdata_path=str(species_data_path) + "/",
             mechanism_data_path=str(mechanisms_path) + "/",
-            aq_chemistry=['sulfate'],
+            aq_chemistry=['sulfate','nitrate'],
             gas_chemistry=False,
             cocondensation=False
         )

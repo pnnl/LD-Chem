@@ -155,8 +155,7 @@ def water_viscosity(T):
 
 
 def cocondensation_solver(population0, gas_population, P, T, S,
-                          dt=1.0, solver='CVODE', verbosity=50, 
-                          atol=1e-10, rtol=1e-10):
+                          dt=1.0, atol=1e-10, rtol=1e-10):
     population_next=population0.clone_detached()
     gas_feedback=GasFeedback(names=[], dc_dts=[])
     radii = 0.5*population0.get_particle_var('wet_diameter')

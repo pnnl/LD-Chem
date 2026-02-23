@@ -1,4 +1,4 @@
-""" 
+'''
 Based on constants function from pyrcel: https://github.com/darothen/pyrcel/blob/master/pyrcel/constants.py
 
 Commonly used constants in microphysics and aerosol thermodynamics equations as
@@ -23,9 +23,9 @@ Symbol            Variable      Value      Units             Description
 :math:`K_a`       ``Ka``        0.02       J/m/s/K           thermal conductivity of air
 :math:`a_T`       ``at``        0.96       unitless          thermal accommodation
                                                              coefficient
-:math:`\epsilon`  ``epsilon``   0.622      unitless          ratio of :math:`M_w/M_a`
-:math:`\e`        ``e``         1.6E-19    C                 electron charge
-:math:`\kb`       ``kb``        1.38E-23   J/K               Boltzmann constant
+:math:`\\epsilon`  ``epsilon``   0.622      unitless          ratio of :math:`M_w/M_a`
+:math:`\\e`       ``e``         1.6E-19    C                 electron charge
+:math:`\\kb`       ``kb``        1.38E-23   J/K               Boltzmann constant
 ================= ============= ========== ==========        ======================
 Additionally, a reference table containing the
 `1976 US Standard Atmosphere <http://www.pdas.com/atmos.html>`_ is implemented in the
@@ -41,7 +41,7 @@ constant ``std_atm``, which is a pandas DataFrame with the fields
 - ``ratio``, ratio of speed of sound to kinematic viscosity in m**-1
 Using default pandas functons, you can interpolate to any reference pressure or
 height level.
-"""
+'''
 g = 9.81  #: Gravitational constant, m/s^2
 Cp = 1004.0  #: Specific heat of dry air at constant pressure, J/(kg K)
 Cpv = 1952.0 #: Specific heat of water vapor at constant pressure, J/(kg K)

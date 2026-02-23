@@ -5,6 +5,7 @@ from ld_chem.reactions import (
     AqReaction, GasReaction, AqueousReactions, GasReactions,
     make_AqReactions, make_GasReactions
 )
+from ld_chem.processes.air_thermo import H2O_gas_conc, es
 
 
 def test_aq_reaction_creation():
@@ -80,8 +81,8 @@ def test_gas_reaction_get_rate_power():
 def test_gas_reaction_get_rate_exp():
     """Test gas reaction rate calculation with exponential."""
     reaction = GasReaction(
-        reactants=["H2O2"],
-        products=["OH", "OH"],
+        reactants=["A","B"],
+        products=["C"],
         rate0=7.66e-6,
         high_P_limit=0.0,
         T_dependence=0.0,
@@ -94,6 +95,59 @@ def test_gas_reaction_get_rate_exp():
     expected = 7.66e-6 * np.exp(0.0/T)
     assert np.isclose(rate, expected)
 
+def test_gas_reaction_get_rate_troe():
+    """Test gas reaction rate calculation with troe form."""
+    reaction = GasReaction(
+        reactants=["A","B"],
+        products=["C"],
+        rate0=7.66e-6,
+        high_P_limit=1.2e6,
+        T_dependence=-4.0,
+        form="troe"
+    )
+    S = 1.0
+    T = 298.15
+    P = 101325.0
+    rate = reaction.get_rate(S, T, P)
+
+    X_H2O = (S*es(T-273.15))/P
+    k0_N2 = reaction.rate0*(T/300)**reaction.T_dependence
+    k0_H2O = 1.65e-32*3.63e35*(T/300)**(-4.9)
+    k0_mix = (1-X_H2O)*k0_N2+X_H2O*k0_H2O
+    k_inf = reaction.high_P_limit
+    M = P/(8.314*T)
+    Pr = (k0_mix*M)/k_inf
+    logFc = np.log10(0.58)
+    N = 0.75 - 1.27 * logFc
+    logPr = np.log10(Pr)
+    denom = 1.0 + (logPr / N)**2
+    F = 10.0**(logFc / denom)
+    expected = (F*k0_mix*M)/(1+((k0_mix*M)/k_inf))
+    
+    assert np.isclose(rate, expected)
+
+def test_gas_reaction_get_rate_H2O_enhancement():
+    """Test gas reaction rate calculation with H2O enhancement form."""
+    reaction = GasReaction(
+        reactants=["A","B"],
+        products=["C"],
+        rate0=0.0,
+        high_P_limit=0.0,
+        T_dependence=0.0,
+        form="HO2_water_enhancement"
+    )
+    S = 1.0
+    T = 298.15
+    P = 101325.0
+    rate = reaction.get_rate(S, T, P)
+
+    H2O_conc = H2O_gas_conc(S,T,P)
+    N2_conc = 0.7808*((P/(8.314*T))-H2O_conc)
+    k1 = 1.32e5*np.exp(600/T)
+    k2 = 6.9e2*N2_conc*np.exp(980/T)
+    expected = (k1+k2)*(1.0+8.4e-4*H2O_conc*np.exp(2200/T))
+    
+    assert np.isclose(rate, expected)
 
 def test_aqueous_reactions_creation():
     """Test AqueousReactions dataclass creation."""
@@ -140,6 +194,14 @@ def test_make_aq_reactions():
         assert isinstance(reaction.rate0, float)
         assert isinstance(reaction.neg_Ea_R, float)
 
+def test_make_aq_reactions_empty():
+    """Test creation of empty AqueousReactions."""
+    # Path to mechanisms directory from test file location
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    chemistry = []
+    aq_reactions = make_AqReactions(chemistry=chemistry, mechanism_data_path=str(mechanisms_path) + "/")
+    assert aq_reactions.reactions is None
+    assert aq_reactions.ids is None
 
 def test_make_gas_reactions():
     """Test creation of GasReactions from file."""

@@ -4,7 +4,12 @@ from ld_chem.processes.cocondensation import (
     dCaq_dt, IEPOX_condensation, dCaq_dt_diffusion_limited,
     beta_FS, water_viscosity, cocondensation_solver, GasFeedback
 )
-
+# from ld_chem.particles import AerosolSpecies
+# from ld_chem.gases import GasSpecies, TraceGasPopulation
+# from part2pop.population import ParticlePopulation
+from ld_chem.scenario import create_parcel_scenario
+from pathlib import Path
+import warnings
 
 def test_gasfeedback_dataclass():
     """Test GasFeedback dataclass creation."""
@@ -102,3 +107,41 @@ def test_water_viscosity():
     result = water_viscosity(T)
     assert isinstance(result, (float, np.floating))
     assert result > 0
+
+def test_cocondensation_solver():
+    """Test cocondensation solver."""
+    num_concs = np.array([1e6])
+    pHs = np.array([7.0])
+    species_names = np.array(['SO4','NH4','IEPOX_OS','H2O'])
+    species_masses = np.array([[1e-25,1e-25,1e-25,1e-25]])
+    gas_names = ['SO2','IEPOX','HNO3','H2SO4']
+    gas_concs = [1e-6,1e-6,1e-6,1e-6]
+
+    mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
+    species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore") # ignore divide by zero warnings
+        parcel_state, aq_reactions, gas_reactions = create_parcel_scenario(
+            num_concs=num_concs,
+            pHs=pHs,
+            species_names=species_names,
+            species_masses=species_masses,
+            gas_names=gas_names,
+            gas_concs=gas_concs,
+            z_end=10.0,
+            specdata_path=str(species_data_path) + "/",
+            mechanism_data_path=str(mechanisms_path) + "/",
+            gas_chemistry=False,
+            cocondensation=True,
+            aq_chemistry=['sulfate']
+        )
+    
+        population_next, gas_feedback = cocondensation_solver(
+            parcel_state.particles, parcel_state.gas, 101325, 298, 0.85)
+
+    assert isinstance(population_next, type(parcel_state.particles))
+    assert isinstance(gas_feedback, GasFeedback)
+    assert len(gas_feedback.names) == len(gas_feedback.dc_dts)
+    assert np.all(np.isfinite(gas_feedback.dc_dts))
+

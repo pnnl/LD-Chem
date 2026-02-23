@@ -85,8 +85,9 @@ def make_TraceGasPopulation(gas_names, gas_conc, specdata_path='species_data/'):
             gases.append(OneGas)
             concs.append(gas_conc[ii])
             ids.append(ii) 
+        concs = np.array(concs)
     else:
         gases = None
         concs = None
         ids = None
-    return TraceGasPopulation(gases=gases, concs=np.array(concs), ids=ids)
+    return TraceGasPopulation(gases=gases, concs=concs, ids=ids)
