@@ -115,7 +115,7 @@ def test_cocondensation_solver():
     species_names = np.array(['SO4','NH4','IEPOX_OS','H2O'])
     species_masses = np.array([[1e-25,1e-25,1e-25,1e-25]])
     gas_names = ['SO2','IEPOX','HNO3','H2SO4']
-    gas_concs = [1e-7,1e-7,1e-7,1e-7]
+    gas_concs = [1e-6,1e-6,1e-6,1e-6]
 
     mechanisms_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "mechanisms"
     species_data_path = Path(__file__).parent.parent.parent / "src" / "ld_chem" / "species_data"
@@ -136,11 +136,10 @@ def test_cocondensation_solver():
             cocondensation=True,
             aq_chemistry=['sulfate']
         )
-    
-        population_next, gas_feedback = cocondensation_solver(
-            parcel_state.particles, parcel_state.gas, 101325, 298, 0.85,
-            atol=1e-5, rtol=1e-10)
 
+        population_next, gas_feedback = cocondensation_solver(
+            parcel_state.particles, parcel_state.gas, 101325, 298, 0.85)
+        
     assert isinstance(population_next, type(parcel_state.particles))
     assert isinstance(gas_feedback, GasFeedback)
     assert len(gas_feedback.names) == len(gas_feedback.dc_dts)
