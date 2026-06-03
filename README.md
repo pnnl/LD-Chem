@@ -1,4 +1,4 @@
-[![CI](https://github.com/lfierce2/LD-Chem/actions/workflows/ci.yml/badge.svg)](https://github.com/lfierce2/LD-Chem/actions/workflows/ci.yml)
+[![CI](https://github.com/pnnl/LD-Chem/actions/workflows/ci.yml/badge.svg)](https://github.com/pnnl/LD-Chem/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/lfierce2/LD-Chem/graph/badge.svg?token=7OLVNZ019K)](https://codecov.io/gh/lfierce2/LD-Chem)
 
 # Lagrangian Droplets with Chemistry Model (LD-Chem)
