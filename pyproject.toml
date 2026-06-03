@@ -34,7 +34,7 @@ dependencies = [
     "pyyaml",
     "mat73",
     "setuptools",
-    "part2pop @ git+https://github.com/pnnl/part2pop.git@main"
+    "part2pop @ git+https://github.com/pnnl/part2pop.git@debug/LD-Chem_CI_issues"
 ]
 
 [project.optional-dependencies]
@@ -54,9 +54,9 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/lfierce2/LD-Chem"
-Documentation = "https://github.com/lfierce2/LD-Chem"
-Repository = "https://github.com/lfierce2/LD-Chem.git"
+Homepage = "https://github.com/pnnl/LD-Chem"
+Documentation = "https://github.com/pnnl/LD-Chem"
+Repository = "https://github.com/pnnl/LD-Chem.git"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
