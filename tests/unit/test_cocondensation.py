@@ -138,7 +138,8 @@ def test_cocondensation_solver():
         )
     
         population_next, gas_feedback = cocondensation_solver(
-            parcel_state.particles, parcel_state.gas, 101325, 298, 0.85)
+            parcel_state.particles, parcel_state.gas, 101325, 298, 0.85,
+            atol=1e-15, rtol=1e-15)
 
     assert isinstance(population_next, type(parcel_state.particles))
     assert isinstance(gas_feedback, GasFeedback)
