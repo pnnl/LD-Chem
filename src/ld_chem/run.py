@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Driver for the Multiscale Particle-based (MultiPart) microphysics model
+Driver for the Lagrangian Droplets with Chemistry model.
 
 @author: fier887
 """

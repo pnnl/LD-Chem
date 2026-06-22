@@ -1,6 +1,6 @@
 # Test Organization
 
-This directory contains the test suite for the multipart package, organized into unit and integration tests.
+This directory contains the test suite for the LD-Chem package, organized into unit and integration tests.
 
 ## Directory Structure
 

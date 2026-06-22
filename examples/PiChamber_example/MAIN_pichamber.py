@@ -3,7 +3,7 @@
 """
 @authors: Laura Fierce and Payton Beeler
 
-This example script demonstrates how to run Pi Chamber trajectory simulations using multipart. 
+This example script demonstrates how to run Pi Chamber trajectory simulations using LD-Chem. 
 
 The first step of simulations is to define the diameters, number concentrations, 
 and composition of each aerosol particle. This can be done manually within run scripts,
@@ -82,5 +82,4 @@ plt.yscale('log')
 plt.ylabel('wet diameter [m]')
 plt.xlabel('time [s]')
 plt.show()
-
 
