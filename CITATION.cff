@@ -10,5 +10,6 @@ authors:
     email: payton.beeler@pnnl.gov
 repository-code: "https://github.com/pnnl/LD-Chem"
 version: "0.1.0"
+license: "BSD-2-Clause"
 type: software
 abstract: "A Python package for simulating aqueous chemistry and cloud-aerosol processes in individual particles."

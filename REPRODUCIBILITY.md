@@ -53,7 +53,6 @@ release documentation only after they are minted.
 
 ## Manual Release Items
 
-- Add the final license file and ensure package metadata matches it.
 - Mint and record the final software release DOI after the release is created.
 - Mint and record any paper dataset DOI or accession if required by the
   manuscript.

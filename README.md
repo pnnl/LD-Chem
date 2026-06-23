@@ -152,5 +152,4 @@ be added there after an official release DOI is minted.
 
 ## License
 
-License text is not currently included in this repository. Before publication
-release, add the project license file and ensure package metadata matches it.
+LD-Chem is distributed under the BSD-2-Clause license. See `LICENSE.txt`.

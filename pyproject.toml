@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Lagrangian Droplets with Chemistry Model"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = "BSD-2-Clause"
 authors = [
     {name = "Laura Fierce", email = "laura.fierce@pnnl.gov"},
     {name = "Payton Beeler", email = "payton.beeler@pnnl.gov"},
