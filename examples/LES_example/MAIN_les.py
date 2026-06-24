@@ -75,7 +75,7 @@ plt.show()
 
 spec_idx = np.where(data['particle species']=='Dwet')[0][0]
 mode1_idx = np.where(data['particles'][0,:,np.where(data['particle species']=='SO4')[0][0]]>0)[0] # pick out only the sulfate particles
-mode2_idx = np.where(data['particles'][0,:,np.where(data['particle species']=='BC')[0][0]]>0)[0] # pick out only the organic particles
+mode2_idx = np.where(data['particles'][0,:,np.where(data['particle species']=='OC')[0][0]]>0)[0] # pick out only the organic particles
 for i, idx in enumerate(mode1_idx):
     plt.plot(data['times'], data['particles'][:,idx,spec_idx], '-r', label='pure sulfate mode' if i == 0 else "")
 for i, idx in enumerate(mode2_idx):
