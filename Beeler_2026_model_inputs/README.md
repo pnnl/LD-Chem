@@ -1,10 +1,10 @@
-## Overview
+# Overview
 
 This folder contains inputs for each trajectory simulation used in "Epoxide-driven secondary organic aerosol formation is modulated by aerosol-cloud cycling", Nature Communications (2026). Each file contains a list of inputs where each row corresponds to one simulation. 
 
-## Quick Start
+# Quick Start
 
-# This is a lightweight example of a single simulation from Beeler et. al. (2026). It is intended to demonstrate how each simulation in the ensemble is run. Parallelization or scripting is highly reccommended if running a lrge number of simulations.
+## This is a lightweight example of a single simulation from Beeler et. al. (2026). It is intended to demonstrate how each simulation in the ensemble is run. Parallelization or scripting is highly reccommended if running a lrge number of simulations.
 
 ```python
 from ld_chem.run import simulate_les_trajectory
@@ -46,9 +46,9 @@ simulate_les_trajectory(
     cocondensation=True, relaxation_time=24.475)
 ```
 
-# This is an example of how to generate input files from measured data and run an LD-Chem simulation for the genreated input files.
+## This is an example of how to generate input files from measured data and run an LD-Chem simulation for the genreated input files.
 
-Step 1: Run input_file_generation.py.sh and provide paths to measured data.
+Step 1: Run input_file_generation.py from command line and provide paths to measured data.
 ```shell
 python3 input_file_generation.py \
     --N_particles 100 \
