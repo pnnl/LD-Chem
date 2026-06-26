@@ -19,25 +19,32 @@ LD-Chem extends the Lagrangian Droplets model lineage.
 - Numba-accelerated process calculations
 
 ## Installation
-Clone the repo, create and activate the conda environment, and install LD-Chem locally:
+
+For development and testing from a clean clone:
 
 ```bash
 git clone https://github.com/pnnl/LD-Chem.git
 cd LD-Chem
-conda env create -f environment.yml 
-conda activate ld-chem
-pip install -e .
-```
-
-To verify the installation, run the test suite:
-```bash
+python -m pip install -e ".[test]"
 python -m pytest
 ```
 
+The conda environment file can be used to create a consistent local scientific
+Python environment before installing the package:
+
+```bash
+conda env create -f environment.yml
+conda activate ld-chem
+```
+
+The editable pip install remains the preferred way to install LD-Chem during
+development because it exercises the same package metadata used by CI.
+
 ## Quick Start
 
-This is a lightweight example of an adiabatic parcel. It is intended to demonstrate
-the package interface with a simple aerosol population under idealized conditions. 
+This is a lightweight smoke-test style example. It is intended to demonstrate
+the package interface with a small synthetic aerosol population, not to
+reproduce a full publication simulation.
 
 ```python
 import pickle
@@ -90,7 +97,7 @@ with open("trajectory.pkl", "rb") as f:
 print(data.keys())
 ```
 
-More complete examples are available under `examples/`.
+Runnable cases are available under `cases/`.
 
 ## Repository Structure
 
@@ -108,7 +115,13 @@ src/ld_chem/
     mechanisms/              # Default gas and aqueous reactions
     processes/               # Differential equation definitions
     species_data/            # Aerosol and gas species definitions
+
+cases/
+    basic_examples/          # Small instructional cases
+    hiscale_20160425/        # HISCALE April 25, 2016 research case scaffold
 ```
+
+`cases/` contains runnable LD-Chem cases, including small basic examples and larger research workflows.
 
 ## Chemical Mechanisms
 
@@ -128,7 +141,7 @@ Default species data are stored in:
 
 ## Reproducibility and Data
 
-This repository bundles source code, tests, examples, default mechanisms, and
+This repository bundles source code, tests, cases, default mechanisms, and
 small species/mechanism data files needed by the package. It does not bundle an
 unpublished paper-specific dataset.
 
@@ -137,14 +150,6 @@ outputs should be archived separately and cited through the manuscript Data
 Availability statement. Final DOI or accession values should be added to the
 manuscript and release notes only after they are minted by the selected archive.
 
-## Versioning
-
-LD-Chem uses calendar-based release tags of the form vYYYY.N for citable
-research-software snapshots. These release numbers do not imply
-semantic-versioning compatibility guarantees. Changes affecting scientific
-results, inputs, outputs, dependencies, or public APIs are documented in the
-release notes.
-
 ## Citation
 
 See `CITATION.cff` for software citation metadata. A final software DOI should
@@ -152,4 +157,5 @@ be added there after an official release DOI is minted.
 
 ## License
 
-LD-Chem is distributed under the BSD-2-Clause license. See `LICENSE.txt`.
+License text is not currently included in this repository. Before publication
+release, add the project license file and ensure package metadata matches it.

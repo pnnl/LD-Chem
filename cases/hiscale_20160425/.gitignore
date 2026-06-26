@@ -1,0 +1,15 @@
+# Local or archived raw data should not be committed here
+data/
+raw_data/
+
+# Large WRF/FLEXPART files
+wrfout_*
+wrfinput_*
+wrfbdy_*
+wrfrst_*
+partposit_*
+*.nc
+
+# Generated outputs
+outputs/
+figures/
