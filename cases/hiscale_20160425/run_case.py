@@ -35,14 +35,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input-dir",
         type=Path,
-        default=Path("model_inputs"),
-        help="Directory containing preprocessed LD-Chem inputs.",
+        default=Path("model_inputs/paper_input_files"),
+        help="Directory containing preprocessed paper LD-Chem inputs.",
+    )
+    parser.add_argument(
+        "--generated-input-dir",
+        type=Path,
+        default=Path("model_inputs/generated_inputs"),
+        help="Directory where generated sample LD-Chem inputs are written.",
     )
     parser.add_argument(
         "--raw-data-dir",
         type=Path,
-        default=Path("data"),
-        help="Directory containing archived WRF-FLEXPART and ARM data.",
+        default=Path("sample_inputs/HISCALE_data_0425"),
+        help="Directory containing sample HISCALE and FLEXPART input files.",
     )
     parser.add_argument(
         "--output-dir",
@@ -66,12 +72,18 @@ def main() -> None:
     if not (args.preprocess_inputs or args.run_ensemble or args.postprocess_figures):
         args.run_ensemble = True
 
+    run_input_dir = args.input_dir
+
     if args.preprocess_inputs:
-        preprocess_inputs(raw_data_dir=args.raw_data_dir, output_dir=args.input_dir)
+        preprocess_inputs(
+            raw_data_dir=args.raw_data_dir,
+            output_dir=args.generated_input_dir,
+        )
+        run_input_dir = args.generated_input_dir
 
     if args.run_ensemble:
         run_ensemble(
-            input_dir=args.input_dir,
+            input_dir=run_input_dir,
             output_dir=args.output_dir,
             max_simulations=args.max_simulations,
         )

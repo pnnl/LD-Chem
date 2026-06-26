@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import pickle
-
-from ld_chem.run import simulate_les_trajectory
-from part2pop.population import build_population
-import numpy as np
+import sys
 
 
 REQUIRED_INPUT_FILES = [
@@ -33,8 +30,9 @@ def _check_required_inputs(input_dir: Path) -> None:
         raise FileNotFoundError(
             f"Missing required preprocessed LD-Chem input files in {input_dir}:\n"
             f"{missing_list}\n\n"
-            "Provide these files in model_inputs/ or run the preprocessing workflow "
-            "once it is available."
+            "Provide paper inputs in model_inputs/paper_input_files/ or generate "
+            "sample inputs in model_inputs/generated_inputs/ with "
+            "`python run_case.py --preprocess-inputs`."
         )
 
 
@@ -44,6 +42,14 @@ def run_ensemble(
     max_simulations: int | None = None,
 ) -> None:
     """Run LD-Chem trajectory simulations from preprocessed HISCALE inputs."""
+    repo_src = Path(__file__).resolve().parents[3] / "src"
+    if repo_src.exists() and str(repo_src) not in sys.path:
+        sys.path.insert(0, str(repo_src))
+
+    import numpy as np
+    from ld_chem.run import simulate_les_trajectory
+    from part2pop.population import build_population
+
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

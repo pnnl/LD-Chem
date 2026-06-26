@@ -34,15 +34,15 @@ Integration tests can be run explicitly with:
 python -m pytest tests/integration
 ```
 
-## Examples
+## Cases
 
 The README quick start is a lightweight smoke test using a small synthetic
-aerosol population. Example scripts under `examples/` demonstrate larger usage
+aerosol population. Runnable cases under `cases/` demonstrate larger usage
 patterns and may write runtime output files in the current working directory.
 
 ## Data Availability
 
-This repository bundles source code, tests, examples, default mechanisms, and
+This repository bundles source code, tests, cases, default mechanisms, and
 small runtime species/mechanism data files. It does not bundle an unpublished
 paper-specific dataset.
 

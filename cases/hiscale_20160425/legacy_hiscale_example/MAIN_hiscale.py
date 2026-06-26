@@ -21,7 +21,7 @@ import numpy as np
 import pickle
 
 # STEP 1: Define the aerosol population based on HI-SCALE measurements on 4/25/2016
-data_path="../example_datasets/HISCALE_data_0425/"
+data_path = "../sample_inputs/HISCALE_data_0425/"
 pop_cfg = {
   "type": "hiscale_observations",
   "N_particles": 100,
@@ -58,7 +58,7 @@ pHs=np.random.normal(size=num_concs.shape[0], loc=2.28, scale=0.78) # average pH
 # 'P': 1D array of pressure (Pa)
 # 's': 1D array of saturation ratio (fractional)
 # 'gas': dict of 1D arrays of gas-phase species concentrations (ppb)
-trajectory_data = pickle.load(open("../example_datasets/example_FLEXPART_trajectory.pkl", 'rb'))
+trajectory_data = pickle.load(open("../model_inputs/paper_input_files/FLEXPART_trajectories.pkl", "rb"))[0]
 
 # Step 3: Run the LES trajectory simulation
 # This example runs with three aqueous chemistry mechanism groups, 

@@ -14,22 +14,58 @@ https://portal.nersc.gov/archive/projects/m1657/www/Beeler_etal_2026
 
 This link is not yet active.
 
-## ARM data
+## Preprocessed paper inputs
 
-ARM observational data may require ARM Data Center access. Users should download required ARM files manually and place them in the directory expected by the preprocessing workflow.
+The main LD-Chem workflow starts from preprocessed model inputs in:
 
-The preprocessing workflow should document the exact expected filenames and variables.
+```text
+model_inputs/paper_input_files/
+```
 
-Known observational inputs from the legacy workflow include:
+Expected files:
+
+```text
+FLEXPART_trajectories.pkl
+diameters.pkl
+aero_spec_names.pkl
+aero_spec_fracs.pkl
+aero_spec_masses.pkl
+number_concentrations.pkl
+pHs.pkl
+```
+
+Each row or list entry corresponds to one LD-Chem trajectory simulation.
+
+## Sample preprocessing inputs
+
+A small set of sample files is included under:
+
+```text
+sample_inputs/HISCALE_data_0425/
+```
+
+These files are used by:
+
+```bash
+python run_case.py --preprocess-inputs
+```
+
+Expected sample files:
 
 ```text
 BEASD_G1_20160425155810_R2_HISCALE_001s.txt
 AIMMS20_G1_20160425155810_R2_HISCALE020h.txt
 Splat_Composition_25-Apr-2016.txt
 HiScaleAMS_G1_20160425_R0.txt
+FLEXPART_output_traj_0001.txt
+CIMS_data/
 ```
 
-These files are used to construct aerosol populations from HISCALE observations.
+The sample preprocessing workflow uses these files to build a one-trajectory LD-Chem input set in:
+
+```text
+model_inputs/generated_inputs/
+```
 
 ## WRF-FLEXPART provenance
 
@@ -55,27 +91,7 @@ Simulation start: 2016-04-25 12:00:00 UTC
 
 FLEXPART-WRF input metadata indicated a forward simulation from 2016-04-25 15:00:00 to 2016-04-25 18:00:00 UTC.
 
-The `AVAILABLE` file listed 181 WRF d02 files from 15:00 through 18:00 inclusive.
-
-## Preprocessed LD-Chem model inputs
-
-The main LD-Chem workflow starts from preprocessed model inputs in `model_inputs/`.
-
-Expected files include:
-
-```text
-FLEXPART_trajectories.pkl
-diameters.pkl
-aero_spec_names.pkl
-aero_spec_fracs.pkl
-aero_spec_masses.pkl
-number_concentrations.pkl
-pHs.pkl
-```
-
-Each row or list entry corresponds to one LD-Chem trajectory simulation.
-
-The expected schema is documented in `model_inputs/README.md`.
+The recovered `AVAILABLE` file listed 181 WRF d02 files from 15:00 through 18:00 inclusive.
 
 ## Data not committed to GitHub
 
@@ -87,7 +103,6 @@ wrfinput_*
 wrfbdy_*
 wrfrst_*
 partposit_*
-*.nc
 large LD-Chem output files
 ```
 
