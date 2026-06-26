@@ -1,6 +1,8 @@
 # Overview
 
-This folder contains inputs for each trajectory simulation used in "Epoxide-driven secondary organic aerosol formation is modulated by aerosol-cloud cycling", Nature Communications (2026). Each file contains a list of inputs where each row corresponds to one simulation. 
+The folder "paper_input_files" contains inputs for each trajectory simulation used in "Epoxide-driven secondary organic aerosol formation is modulated by aerosol-cloud cycling", Nature Communications (2026). Each file contains a list of inputs where each row corresponds to one simulation. 
+
+This folder also contains instructions for generating new input files from measured data and FLEXPART output files.
 
 # Quick Start
 
