@@ -28,11 +28,11 @@ def _check_required_inputs(input_dir: Path) -> None:
     if missing:
         missing_list = "\n".join(f"  - {name}" for name in missing)
         raise FileNotFoundError(
-            f"Missing required preprocessed LD-Chem input files in {input_dir}:\n"
+            f"Missing required LD-Chem-ready input files in {input_dir}:\n"
             f"{missing_list}\n\n"
-            "Provide paper inputs in model_inputs/paper_input_files/ or generate "
-            "sample inputs in model_inputs/generated_inputs/ with "
-            "`python run_case.py --preprocess-inputs`."
+            "Use the committed paper inputs in model_inputs/, or generate local inputs with:\n"
+            "  python run_case.py --preprocess-inputs\n\n"
+            "Generated inputs are written to generated_model_inputs/ and are not committed."
         )
 
 

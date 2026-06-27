@@ -1,8 +1,18 @@
-# Local or archived raw data should not be committed here
+# Optional local upstream observational/FLEXPART input data
 data/
-raw_data/
 
-# Large WRF/FLEXPART files
+# Generated LD-Chem-ready inputs from optional advanced preprocessing
+generated_model_inputs/
+
+# Generated LD-Chem model outputs
+model_outputs/*
+!model_outputs/
+!model_outputs/README.md
+
+# Optional figures
+figures/
+
+# Large WRF/FLEXPART files, wherever they accidentally appear
 wrfout_*
 wrfinput_*
 wrfbdy_*
@@ -10,6 +20,6 @@ wrfrst_*
 partposit_*
 *.nc
 
-# Generated outputs
-outputs/
-figures/
+# Python cache files
+__pycache__/
+*.pyc

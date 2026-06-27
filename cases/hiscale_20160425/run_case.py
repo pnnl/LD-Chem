@@ -35,26 +35,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input-dir",
         type=Path,
-        default=Path("model_inputs/paper_input_files"),
-        help="Directory containing preprocessed paper LD-Chem inputs.",
+        default=Path("model_inputs"),
+        help="Directory containing committed LD-Chem-ready input files.",
     )
     parser.add_argument(
         "--generated-input-dir",
         type=Path,
-        default=Path("model_inputs/generated_inputs"),
-        help="Directory where generated sample LD-Chem inputs are written.",
+        default=Path("generated_model_inputs"),
+        help="Directory where optional generated LD-Chem-ready inputs are written.",
     )
     parser.add_argument(
-        "--raw-data-dir",
+        "--obs-data-dir",
         type=Path,
-        default=Path("sample_inputs/HISCALE_data_0425"),
-        help="Directory containing sample HISCALE and FLEXPART input files.",
+        default=Path("data/obs"),
+        help="Directory containing local observational input files for optional preprocessing.",
+    )
+    parser.add_argument(
+        "--flexpart-file",
+        type=Path,
+        default=Path("data/flexpart/FLEXPART_output_traj_0001.txt"),
+        help="Path to the local FLEXPART text trajectory file for optional preprocessing.",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("outputs"),
-        help="Directory for generated LD-Chem outputs.",
+        default=Path("model_outputs"),
+        help="Directory for generated LD-Chem model outputs.",
     )
     parser.add_argument(
         "--max-simulations",
@@ -76,7 +82,8 @@ def main() -> None:
 
     if args.preprocess_inputs:
         preprocess_inputs(
-            raw_data_dir=args.raw_data_dir,
+            obs_data_dir=args.obs_data_dir,
+            flexpart_file=args.flexpart_file,
             output_dir=args.generated_input_dir,
         )
         run_input_dir = args.generated_input_dir

@@ -1,4 +1,4 @@
-"""Generate LD-Chem inputs from sample HISCALE and FLEXPART files.
+"""Generate LD-Chem inputs from user-provided HISCALE and FLEXPART files.
 
 This helper preserves the scientific logic from the original HISCALE input
 generation script while writing ensemble-compatible LD-Chem input files.
@@ -52,26 +52,30 @@ def _np():
     return np
 
 
-def _required_input_paths(raw_data_dir: Path) -> list[Path]:
+def _required_input_paths(obs_data_dir: Path, flexpart_file: Path) -> list[Path]:
     return [
-        raw_data_dir / "BEASD_G1_20160425155810_R2_HISCALE_001s.txt",
-        raw_data_dir / "AIMMS20_G1_20160425155810_R2_HISCALE020h.txt",
-        raw_data_dir / "Splat_Composition_25-Apr-2016.txt",
-        raw_data_dir / "HiScaleAMS_G1_20160425_R0.txt",
-        raw_data_dir / "FLEXPART_output_traj_0001.txt",
-        raw_data_dir / "CIMS_data",
-        raw_data_dir / "CIMS_data" / "AGFL_atmosphere.txt",
+        obs_data_dir / "BEASD_G1_20160425155810_R2_HISCALE_001s.txt",
+        obs_data_dir / "AIMMS20_G1_20160425155810_R2_HISCALE020h.txt",
+        obs_data_dir / "Splat_Composition_25-Apr-2016.txt",
+        obs_data_dir / "HiScaleAMS_G1_20160425_R0.txt",
+        obs_data_dir / "CIMS_data",
+        obs_data_dir / "CIMS_data" / "AGFL_atmosphere.txt",
+        flexpart_file,
     ]
 
 
-def _check_required_inputs(raw_data_dir: Path) -> None:
-    missing = [path for path in _required_input_paths(raw_data_dir) if not path.exists()]
+def _check_required_inputs(obs_data_dir: Path, flexpart_file: Path) -> None:
+    missing = [
+        path for path in _required_input_paths(obs_data_dir, flexpart_file) if not path.exists()
+    ]
     if missing:
         missing_list = "\n".join(f"  - {path}" for path in missing)
         raise FileNotFoundError(
-            "Missing required HISCALE sample preprocessing files:\n"
+            "Missing required upstream HISCALE preprocessing files:\n"
             f"{missing_list}\n\n"
-            "Expected sample inputs under sample_inputs/HISCALE_data_0425/."
+            "These observational and FLEXPART files are not bundled with the GitHub "
+            "repository. Provide them locally under data/obs/ and data/flexpart/, "
+            "or pass custom --obs-data-dir and --flexpart-file paths."
         )
 
 
@@ -426,8 +430,10 @@ def build_gas_trajectory(trajectory_z: Any, vertical_gas_data: dict[str, dict[st
 
 
 def preprocess_inputs(
-    raw_data_dir: Path = Path("sample_inputs/HISCALE_data_0425"),
-    output_dir: Path = Path("model_inputs/generated_inputs"),
+    *,
+    obs_data_dir: Path = Path("data/obs"),
+    flexpart_file: Path = Path("data/flexpart/FLEXPART_output_traj_0001.txt"),
+    output_dir: Path = Path("generated_model_inputs"),
     n_particles: int = 100,
     z: float = 100.0,
     dz: float = 100.0,
@@ -442,17 +448,17 @@ def preprocess_inputs(
     lat_max: float = 36.81,
     gas_names: tuple[str, ...] = DEFAULT_GAS_NAMES,
 ) -> None:
-    """Generate ensemble-compatible LD-Chem inputs from sample HISCALE files."""
-    raw_data_dir = Path(raw_data_dir)
+    """Generate ensemble-compatible LD-Chem inputs from upstream HISCALE files."""
+    obs_data_dir = Path(obs_data_dir)
+    flexpart_file = Path(flexpart_file)
     output_dir = Path(output_dir)
-    _check_required_inputs(raw_data_dir)
+    _check_required_inputs(obs_data_dir, flexpart_file)
 
-    size_distribution_file = raw_data_dir / "BEASD_G1_20160425155810_R2_HISCALE_001s.txt"
-    aimms_file = raw_data_dir / "AIMMS20_G1_20160425155810_R2_HISCALE020h.txt"
-    splat_file = raw_data_dir / "Splat_Composition_25-Apr-2016.txt"
-    ams_file = raw_data_dir / "HiScaleAMS_G1_20160425_R0.txt"
-    flexpart_file = raw_data_dir / "FLEXPART_output_traj_0001.txt"
-    gas_phase_directory = raw_data_dir / "CIMS_data"
+    size_distribution_file = obs_data_dir / "BEASD_G1_20160425155810_R2_HISCALE_001s.txt"
+    aimms_file = obs_data_dir / "AIMMS20_G1_20160425155810_R2_HISCALE020h.txt"
+    splat_file = obs_data_dir / "Splat_Composition_25-Apr-2016.txt"
+    ams_file = obs_data_dir / "HiScaleAMS_G1_20160425_R0.txt"
+    gas_phase_directory = obs_data_dir / "CIMS_data"
 
     (
         aero_spec_names,
@@ -499,10 +505,15 @@ def preprocess_inputs(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate LD-Chem inputs from sample HISCALE/FLEXPART files."
+        description="Generate LD-Chem inputs from user-provided HISCALE/FLEXPART files."
     )
-    parser.add_argument("--raw-data-dir", type=Path, default=Path("sample_inputs/HISCALE_data_0425"))
-    parser.add_argument("--output-dir", type=Path, default=Path("model_inputs/generated_inputs"))
+    parser.add_argument("--obs-data-dir", type=Path, default=Path("data/obs"))
+    parser.add_argument(
+        "--flexpart-file",
+        type=Path,
+        default=Path("data/flexpart/FLEXPART_output_traj_0001.txt"),
+    )
+    parser.add_argument("--output-dir", type=Path, default=Path("generated_model_inputs"))
     parser.add_argument("--n-particles", type=int, default=100)
     parser.add_argument("--z", type=float, default=100.0)
     parser.add_argument("--dz", type=float, default=100.0)
@@ -515,7 +526,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     preprocess_inputs(
-        raw_data_dir=args.raw_data_dir,
+        obs_data_dir=args.obs_data_dir,
+        flexpart_file=args.flexpart_file,
         output_dir=args.output_dir,
         n_particles=args.n_particles,
         z=args.z,

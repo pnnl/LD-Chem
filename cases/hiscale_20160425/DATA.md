@@ -2,24 +2,12 @@
 
 This file documents the data used by the HISCALE April 25, 2016 LD-Chem case.
 
-## External data archive
+## Committed LD-Chem-ready inputs
 
-Large WRF-FLEXPART and supporting data files are stored outside this GitHub repository.
-
-Archive location:
+The main workflow starts from committed model input files in:
 
 ```text
-https://portal.nersc.gov/archive/projects/m1657/www/Beeler_etal_2026
-```
-
-This link is not yet active.
-
-## Preprocessed paper inputs
-
-The main LD-Chem workflow starts from preprocessed model inputs in:
-
-```text
-model_inputs/paper_input_files/
+model_inputs/
 ```
 
 Expected files:
@@ -36,36 +24,65 @@ pHs.pkl
 
 Each row or list entry corresponds to one LD-Chem trajectory simulation.
 
-## Sample preprocessing inputs
+These files are already preprocessed for LD-Chem and are the recommended entry point for the case.
 
-A small set of sample files is included under:
+## Generated model outputs
 
-```text
-sample_inputs/HISCALE_data_0425/
-```
-
-These files are used by:
-
-```bash
-python run_case.py --preprocess-inputs
-```
-
-Expected sample files:
+Generated LD-Chem model outputs are written to:
 
 ```text
-BEASD_G1_20160425155810_R2_HISCALE_001s.txt
-AIMMS20_G1_20160425155810_R2_HISCALE020h.txt
-Splat_Composition_25-Apr-2016.txt
-HiScaleAMS_G1_20160425_R0.txt
-FLEXPART_output_traj_0001.txt
-CIMS_data/
+model_outputs/
 ```
 
-The sample preprocessing workflow uses these files to build a one-trajectory LD-Chem input set in:
+Generated outputs are ignored by Git and should not be committed.
+
+## Optional upstream preprocessing data
+
+The optional preprocessing workflow can regenerate LD-Chem-ready inputs from upstream observational and FLEXPART files.
+
+Those upstream files are not bundled with the GitHub repository.
+
+Default local layout for optional preprocessing:
 
 ```text
-model_inputs/generated_inputs/
+data/
+  obs/
+    BEASD_G1_20160425155810_R2_HISCALE_001s.txt
+    AIMMS20_G1_20160425155810_R2_HISCALE020h.txt
+    Splat_Composition_25-Apr-2016.txt
+    HiScaleAMS_G1_20160425_R0.txt
+    CIMS_data/
+      AGFL_atmosphere.txt
+      g1_20160425a_*_obs.txt
+  flexpart/
+    FLEXPART_output_traj_0001.txt
 ```
+
+The observational inputs are used to initialize aerosol and gas-phase conditions. These files may come from ARM, campaign-specific IOP products, or derived observational files.
+
+Aerosol population construction uses `part2pop`.
+
+Generated LD-Chem-ready inputs from this optional preprocessing workflow are written to:
+
+```text
+generated_model_inputs/
+```
+
+Generated model inputs are ignored by Git.
+
+## External archive
+
+Large WRF-FLEXPART and supporting data files are stored outside this GitHub repository.
+
+Archive location:
+
+```text
+https://portal.nersc.gov/archive/projects/m1657/www/Beeler_etal_2026
+```
+
+This link is not yet active.
+
+ARM or campaign observational data may also require separate access through the ARM Data Center or campaign-specific data products.
 
 ## WRF-FLEXPART provenance
 
@@ -95,15 +112,21 @@ The recovered `AVAILABLE` file listed 181 WRF d02 files from 15:00 through 18:00
 
 ## Data not committed to GitHub
 
-The following file types should not be committed to GitHub:
+The following should not be committed to GitHub:
 
 ```text
+data/
+generated_model_inputs/
+model_outputs/trajectory_*.pkl
+model_outputs/trajectory_restart_*.pkl
 wrfout_*
 wrfinput_*
 wrfbdy_*
 wrfrst_*
 partposit_*
-large LD-Chem output files
+*.nc
 ```
 
 Large files should be stored in the external archive and referenced from this documentation.
+
+The full upstream WRF/FLEXPART workflow is not reproducible from the GitHub repository alone.

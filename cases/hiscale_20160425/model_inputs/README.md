@@ -1,16 +1,10 @@
-# HISCALE preprocessed LD-Chem inputs
+# HISCALE model inputs
 
-This directory contains, or documents how to generate, preprocessed LD-Chem inputs for the HISCALE April 25, 2016 trajectory ensemble associated with Beeler et al. 2026.
+This directory contains committed, LD-Chem-ready input files for the HISCALE April 25, 2016 trajectory ensemble associated with Beeler et al. 2026.
 
-## Paper inputs
+These files are the recommended entry point for running the HISCALE case.
 
-The preprocessed paper inputs are stored in:
-
-```text
-paper_input_files/
-```
-
-Expected files:
+## Expected files
 
 ```text
 FLEXPART_trajectories.pkl
@@ -23,28 +17,6 @@ pHs.pkl
 ```
 
 Each file contains a list or array where each row or entry corresponds to one LD-Chem trajectory simulation.
-
-## Generated sample inputs
-
-Running:
-
-```bash
-python run_case.py --preprocess-inputs
-```
-
-from the parent case directory creates:
-
-```text
-generated_inputs/
-```
-
-This generated input set is produced from the sample HISCALE observational files and sample FLEXPART trajectory file in:
-
-```text
-../sample_inputs/HISCALE_data_0425/
-```
-
-The generated input set is intended to demonstrate the preprocessing workflow for one trajectory.
 
 ## File descriptions
 
@@ -103,10 +75,4 @@ From the parent case directory:
 python run_case.py --run-ensemble --max-simulations 1
 ```
 
-This runs one LD-Chem simulation using the paper inputs in `paper_input_files/`.
-
-To run one simulation using newly generated sample inputs:
-
-```bash
-python run_case.py --preprocess-inputs --run-ensemble --max-simulations 1
-```
+This runs one LD-Chem simulation using the committed inputs in this directory.
