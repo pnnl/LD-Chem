@@ -29,7 +29,7 @@ def build_aerosol_population() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     pop_cfg = {
         "type": "binned_lognormals",
-        "N": [1e9, 1e9],
+        "N": [1.0e9, 1.0e9],
         "GMD": [150e-9, 150e-9],
         "GSD": [1.6, 1.6],
         "aero_spec_names": [["SO4"], ["OC"]],
@@ -106,6 +106,13 @@ def _find_series(data: Any, names: tuple[str, ...]) -> np.ndarray | None:
                 return array
     return None
 
+def _build_particle_gas_trajectory(data, names):
+    if names is not None:
+        out_data = {}
+        for ii, (name) in enumerate(names):
+            out_data[name]=data[:,:,ii]
+        return out_data
+    return None
 
 def _reduce_to_axis(values: np.ndarray, axis_length: int) -> np.ndarray:
     np = _numpy()
@@ -139,7 +146,7 @@ def run_case(output_dir: Path) -> Path:
         num_concs,
         pHs,
         trajectory_data,
-        dt=5.0,
+        dt=1.0,
         restart_filename=str(restart_filename),
         radius_scale="log",
         output_filename=str(output_filename),
@@ -163,10 +170,12 @@ def plot_outputs(output_dir: Path) -> None:
     output_filename = output_dir / "trajectory.pkl"
     with output_filename.open("rb") as handle:
         data = pickle.load(handle)
+    data["particles"]=_build_particle_gas_trajectory(data["particles"], data["particle species"])
+    data["gases"]=_build_particle_gas_trajectory(data["gases"], data["gas species"])
 
     time = _find_series(data, ("times", "time", "t"))
     saturation = _find_series(data, ("s", "S", "saturation ratio"))
-    wet_diameter = _find_series(data, ("Dwet", "wet_diameter"))
+    wet_diameter = _find_series(data["particles"], ("Dwet", "wet_diameter"))
 
     if time is None or saturation is None or wet_diameter is None:
         raise KeyError(

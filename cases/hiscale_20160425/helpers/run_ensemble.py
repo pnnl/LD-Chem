@@ -111,6 +111,6 @@ def run_ensemble(
             condensation=True,
             gas_chemistry=True,
             print_to_screen=True,
-            cocondensation=False,
+            cocondensation=True,
             relaxation_time=24.475,
         )

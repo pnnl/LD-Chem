@@ -82,7 +82,11 @@ https://portal.nersc.gov/archive/projects/m1657/www/Beeler_etal_2026
 
 This link is not yet active.
 
-ARM or campaign observational data may also require separate access through the ARM Data Center or campaign-specific data products.
+ARM or campaign observational data can be found on the ARM data archive, but may also require separate access through the ARM Data Center or campaign-specific data products.
+
+```
+https://adc.arm.gov/discovery/results/iopShortName::sgp2016hiscale
+```
 
 ## WRF-FLEXPART provenance
 

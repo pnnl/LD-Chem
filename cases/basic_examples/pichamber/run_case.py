@@ -54,8 +54,8 @@ def build_trajectory() -> dict[str, np.ndarray | None | dict[str, np.ndarray]]:
     T = np.full_like(t, 298.0)
     P = np.full_like(t, 101325.0)
     s = 0.96 + 0.03 * np.sin(2.0 * np.pi * t / 600.0)
-    x = None
-    y = None
+    x = np.zeros_like(t)
+    y = np.zeros_like(t)
     # LD-Chem expects gas to be mapping-like; an empty dict means no prescribed gases.
     gas: dict[str, np.ndarray] = {}
 
@@ -103,7 +103,14 @@ def _find_series(data: Any, names: tuple[str, ...]) -> np.ndarray | None:
             if array is not None:
                 return array
     return None
-
+    
+def _build_particle_gas_trajectory(data, names):
+    if names is not None:
+        out_data = {}
+        for ii, (name) in enumerate(names):
+            out_data[name]=data[:,:,ii]
+        return out_data
+    return None
 
 def _reduce_to_axis(values: np.ndarray, axis_length: int) -> np.ndarray:
     np = _numpy()
@@ -137,7 +144,7 @@ def run_case(output_dir: Path) -> Path:
         num_concs,
         pHs,
         trajectory_data,
-        dt=5.0,
+        dt=1.0,
         restart_filename=str(restart_filename),
         radius_scale="log",
         output_filename=str(output_filename),
@@ -161,10 +168,12 @@ def plot_outputs(output_dir: Path) -> None:
     output_filename = output_dir / "trajectory.pkl"
     with output_filename.open("rb") as handle:
         data = pickle.load(handle)
-
+    data["particles"]=_build_particle_gas_trajectory(data["particles"], data["particle species"])
+    data["gases"]=_build_particle_gas_trajectory(data["gases"], data["gas species"])
+    
     time = _find_series(data, ("times", "time", "t"))
     saturation = _find_series(data, ("s", "S", "saturation ratio"))
-    wet_diameter = _find_series(data, ("Dwet", "wet_diameter"))
+    wet_diameter = _find_series(data["particles"], ("Dwet", "wet_diameter"))
 
     if time is None or saturation is None or wet_diameter is None:
         raise KeyError(
