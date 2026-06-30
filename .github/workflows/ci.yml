@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["main", "debug/CI_issues"]
+    branches: ["main"]
   pull_request:
     branches: ["main"]
   schedule:
@@ -38,7 +38,21 @@ jobs:
       - name: Run tests with coverage
         run: |
           python -m pytest --cov=src/ld_chem --cov-config=.coveragerc --cov-report=xml --cov-report=term-missing
+      - name: Run tests with coverage
+        run: |
+          python -m pytest --cov=src/ld_chem --cov-config=.coveragerc --cov-report=xml --cov-report=term-missing
 
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+          verbose: true
+  
   integration-tests:
     name: Integration tests (main & PRs only)
     runs-on: ubuntu-latest
