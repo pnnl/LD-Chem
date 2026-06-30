@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use LD-Chem, please cite the software and the associated publication."
+title: "LD-Chem: Lagrangian Droplets with Chemistry Model"
+authors:
+  - family-names: Fierce
+    given-names: Laura
+    email: laura.fierce@pnnl.gov
+  - family-names: Beeler
+    given-names: Payton
+    email: payton.beeler@pnnl.gov
+repository-code: "https://github.com/pnnl/LD-Chem"
+version: "0.1.0"
+license: "BSD-2-Clause"
+type: software
+abstract: "A Python package for simulating aqueous chemistry and cloud-aerosol processes in individual particles."

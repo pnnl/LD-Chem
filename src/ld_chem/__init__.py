@@ -12,31 +12,22 @@ atmospheric microphysics processes.
 __version__ = "0.1.0"
 __author__ = "Laura Fierce"
 __email__ = "laura.fierce@pnnl.gov"
-# Import main components for easy access
-try:
-    from .scenario import (
-        create_les_scenario,
-        create_parcel_scenario,
-        make_AqReactions,
-        make_GasReactions,
-    )
-    from .systems import (
-        ParcelState,
-        Processes,
-    )
-    from .particles import (
-        ParticlePopulation
-    )
-    
-    __all__ = [
-        'create_les_scenario',
-        'create_parcel_scenario',
-        'make_AqReactions',
-        'make_GasReactions',
-        'ParcelState',
-        'Processes',
-        'ParticlePopulation',
-    ]
-except ImportError as e:
-    import warnings
-    warnings.warn(f"Could not import all multipart components: {e}")
+
+from .reactions import make_AqReactions, make_GasReactions
+from .run import restart_trajectory, simulate_les_trajectory, simulate_parcel
+from .scenario import LagrangianElement, LagrangianElementDriver, create_les_scenario, create_parcel_scenario
+from .systems import Feedbacks, Processes
+
+__all__ = [
+    "Feedbacks",
+    "LagrangianElement",
+    "LagrangianElementDriver",
+    "Processes",
+    "create_les_scenario",
+    "create_parcel_scenario",
+    "make_AqReactions",
+    "make_GasReactions",
+    "restart_trajectory",
+    "simulate_les_trajectory",
+    "simulate_parcel",
+]

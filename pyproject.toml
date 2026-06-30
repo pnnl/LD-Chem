@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "LD-Chem"
+name = "ld-chem"
 version = "0.1.0"
 description = "Lagrangian Droplets with Chemistry Model"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "BSD-2-Clause"
 authors = [
     {name = "Laura Fierce", email = "laura.fierce@pnnl.gov"},
     {name = "Payton Beeler", email = "payton.beeler@pnnl.gov"},
@@ -17,7 +17,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -67,4 +66,5 @@ where = ["src"]
 [tool.setuptools.package-data]
 ld_chem = [
     "species_data/*.dat",
+    "mechanisms/*.dat",
 ]

@@ -1,0 +1,25 @@
+# Optional local upstream observational/FLEXPART input data
+data/
+
+# Generated LD-Chem-ready inputs from optional advanced preprocessing
+generated_model_inputs/
+
+# Generated LD-Chem model outputs
+model_outputs/*
+!model_outputs/
+!model_outputs/README.md
+
+# Optional figures
+figures/
+
+# Large WRF/FLEXPART files, wherever they accidentally appear
+wrfout_*
+wrfinput_*
+wrfbdy_*
+wrfrst_*
+partposit_*
+*.nc
+
+# Python cache files
+__pycache__/
+*.pyc

@@ -1,2 +1,3 @@
-include src/multipart/species_data/*.dat
+include src/ld_chem/species_data/*.dat
+include src/ld_chem/mechanisms/*.dat
 recursive-include examples *
