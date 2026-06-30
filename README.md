@@ -1,40 +1,54 @@
 [![CI](https://github.com/pnnl/LD-Chem/actions/workflows/ci.yml/badge.svg)](https://github.com/pnnl/LD-Chem/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/lfierce2/LD-Chem/graph/badge.svg?token=7OLVNZ019K)](https://codecov.io/gh/lfierce2/LD-Chem)
+[![codecov](https://codecov.io/gh/pnnl/LD-Chem/branch/main/graph/badge.svg)](https://codecov.io/gh/pnnl/LD-Chem)
 
 # Lagrangian Droplets with Chemistry Model (LD-Chem)
 
-> A Python toolkit for simulating aqueous chemistry and cloud-aerosol processes in individual particles.
+LD-Chem is a Python package for simulating aqueous chemistry and cloud-aerosol
+processes in individual particles. It supports adiabatic parcel simulations and
+trajectory-driven simulations using time series of position, saturation ratio,
+temperature, pressure, and trace gas concentrations when available.
 
-`LD-Chem` is a lightweight Python library that provides a framework for simulating activation of particles into cloud droplets, aqueous chemistry, gas chemistry, and gas-particle mass transfer. The framework can be run in two modes: adiabatic parcel and LES. Adiabatic parcel simulations are driven by a user-defined constant updraft velocity. LES simulations can be run at any scale (despite the name "large eddy simulation"). They are driven by time series of position, saturation ratio, temperature, pressure, and trace gas concentrations (if available). The framework enables reproducible process-level investigations if aerosol-cloud interactions. This model is an extension of the Lagrangian Droplets model, which can be found at https://github.com/lfierce2/LagrangianDroplets/.
+The LD-Chem model is an extension of the Lagrangian Droplets model, which can be found at https://github.com/lfierce2/LagrangianDroplets/.
 
----
 
 ## Features
 
-- **Flexible simulation modes**: Run adiabatic parcel or LES (Large Eddy Simulation) simulations that can be run at any spatial scale
-- **Particle activation**: Simulate the activation of aerosol particles into cloud droplets
-- **Gas-particle mass transfer**: Resolve equilibrium partitioning and kinetic mass transfer between gas and particle phases
-- **Aqueous-phase chemistry**: Simulate in-cloud chemistry with configurable reaction mechanisms
-- **Gas-phase chemistry**: Model tropospheric gas-phase reactions during transport with configurable reaction mechanisms
-- **Customizable aerosol populations**: Leverage `part2pop` for flexible aerosol composition and size distribution definitions
-- **Efficient computation**: Numba-accelerated differential equation solvers for fast simulations
-- **Process-level analysis**: Enables reproducible investigations of aerosol-cloud interactions at the process scale
+- Adiabatic parcel and trajectory-driven simulation modes
+- Particle activation and condensational growth
+- Gas-particle mass transfer
+- Configurable aqueous-phase and gas-phase chemistry
+- Aerosol population definitions through `part2pop`
+- Numba-accelerated process calculations
 
 ## Installation
 
+LD-Chem can be installed from a local clone of the repository. We recommend using the provided conda environment to create a consistent Python environment before installing the package.
+
 ```bash
-git clone git@github.com:lfierce2/LD-Chem.git
+git clone https://github.com/pnnl/LD-Chem.git
 cd LD-Chem
-pip install -e .
+
+conda env create -f environment.yml 
+conda activate ld-chem
+
+python -m pip install -e .
 ```
----
 
-## Quick start
+The editable install keeps the local source tree connected to the installed package, so updates to the code are available without reinstalling.
 
-### Build a simple population using part2pop and run a parcel simulation
+## Quick Start
 
+This simple test builds a population with part2pop and runs an adibatic prcel simulation. It is intended to demonstrate
+the package interface with a small synthetic aerosol population, not to
+reproduce a full publication simulation.
+
+
+### Build particle population and run parcel case
 ```python
+import numpy as np
 from part2pop.population.builder import build_population
+
+from ld_chem import simulate_parcel
 
 pop_cfg = {
     "type": "binned_lognormals",
@@ -63,9 +77,10 @@ simulate_parcel(
 ```
 
 ### Analyze and plot results
-
 ```python
 import matplotlib.pyplot as plt
+import pickle
+
 data=pickle.load(open('trajectory.pkl','rb'))
 
 plt.plot(data['S'], data['z'])
@@ -83,30 +98,31 @@ plt.show()
 
 ```
 
-More examples are available under `examples/`.
+Runnable cases are available under `cases/`.
 
----
+## Repository Structure
 
-## Repository structure
-
-```
+```text
 src/ld_chem/
     constants.py             # Physical constants
     gases.py                 # Trace gas representation
-    particles.py             # Definition of particle species
-    reactions.py             # Definition of gas and aqueous phase reactions
-    run.py                   # Sets up and runs simulations
+    particles.py             # Particle species helpers
+    reactions.py             # Gas and aqueous reaction definitions
+    run.py                   # Simulation entry points
     scenario.py              # Simulation setup
-    systems.py               # Call solvers and update state
-    utilities.py             # Ensures mass balance during solving
-    write_files.py           # Writes backup files and outputs data
-    mechanisms/              # Defines gas and aqueous phase reactions
-    processes/               # Stores differential equation definitions
+    systems.py               # Solvers and state updates
+    utilities.py             # Runtime consistency checks
+    write_files.py           # Output writers
+    mechanisms/              # Default gas and aqueous reactions
+    processes/               # Differential equation definitions
     species_data/            # Aerosol and gas species definitions
 
+cases/
+    basic_examples/          # Small instructional cases
+    hiscale_20160425/        # HISCALE April 25, 2016 research case scaffold
 ```
 
-## Definitions of Chemical Mechanisms
+`cases/` contains runnable LD-Chem cases, including small basic examples and larger research workflows.
 
 LD-Chem was designed with flexible gas- and aqueous-phase chemistry definitions. Both aqueous and gas-phase mechanisms are defined in simple data format files, allowing easy customization and extension.
 
@@ -219,8 +235,18 @@ simulate_parcel(
 )
 ``` 
 
----
+## Reproducibility and Data
+
+This repository bundles source code, tests, cases, default mechanisms, and
+small species/mechanism data files needed by the package. It does not bundle an
+unpublished paper-specific dataset.
+
+For a publication release, paper-specific input datasets and large generated
+outputs should be archived separately and cited through the manuscript Data
+Availability statement. Final DOI or accession values should be added to the
+manuscript and release notes only after they are minted by the selected archive.
 
 ## License
 
-See the `LICENSE` file in this repository.
+License text is not currently included in this repository. Before publication
+release, add the project license file and ensure package metadata matches it.
