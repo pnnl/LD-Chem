@@ -1,162 +1,226 @@
 [![CI](https://github.com/pnnl/LD-Chem/actions/workflows/ci.yml/badge.svg)](https://github.com/pnnl/LD-Chem/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/pnnl/LD-Chem/graph/badge.svg)](https://codecov.io/gh/pnnl/LD-Chem)
+[![codecov](https://codecov.io/gh/lfierce2/LD-Chem/graph/badge.svg?token=7OLVNZ019K)](https://codecov.io/gh/lfierce2/LD-Chem)
 
 # Lagrangian Droplets with Chemistry Model (LD-Chem)
 
-LD-Chem is a Python package for simulating aqueous chemistry and cloud-aerosol
-processes in individual particles. It supports adiabatic parcel simulations and
-trajectory-driven simulations using time series of position, saturation ratio,
-temperature, pressure, and trace gas concentrations when available.
+> A Python toolkit for simulating aqueous chemistry and cloud-aerosol processes in individual particles.
 
-LD-Chem extends the Lagrangian Droplets model lineage.
+`LD-Chem` is a lightweight Python library that provides a framework for simulating activation of particles into cloud droplets, aqueous chemistry, gas chemistry, and gas-particle mass transfer. The framework can be run in two modes: adiabatic parcel and LES. Adiabatic parcel simulations are driven by a user-defined constant updraft velocity. LES simulations can be run at any scale (despite the name "large eddy simulation"). They are driven by time series of position, saturation ratio, temperature, pressure, and trace gas concentrations (if available). The framework enables reproducible process-level investigations if aerosol-cloud interactions. This model is an extension of the Lagrangian Droplets model, which can be found at https://github.com/lfierce2/LagrangianDroplets/.
+
+---
 
 ## Features
 
-- Adiabatic parcel and trajectory-driven simulation modes
-- Particle activation and condensational growth
-- Gas-particle mass transfer
-- Configurable aqueous-phase and gas-phase chemistry
-- Aerosol population definitions through `part2pop`
-- Numba-accelerated process calculations
+- **Flexible simulation modes**: Run adiabatic parcel or LES (Large Eddy Simulation) simulations that can be run at any spatial scale
+- **Particle activation**: Simulate the activation of aerosol particles into cloud droplets
+- **Gas-particle mass transfer**: Resolve equilibrium partitioning and kinetic mass transfer between gas and particle phases
+- **Aqueous-phase chemistry**: Simulate in-cloud chemistry with configurable reaction mechanisms
+- **Gas-phase chemistry**: Model tropospheric gas-phase reactions during transport with configurable reaction mechanisms
+- **Customizable aerosol populations**: Leverage `part2pop` for flexible aerosol composition and size distribution definitions
+- **Efficient computation**: Numba-accelerated differential equation solvers for fast simulations
+- **Process-level analysis**: Enables reproducible investigations of aerosol-cloud interactions at the process scale
 
 ## Installation
 
-For development and testing from a clean clone:
-
 ```bash
-git clone https://github.com/pnnl/LD-Chem.git
+git clone git@github.com:lfierce2/LD-Chem.git
 cd LD-Chem
-python -m pip install -e ".[test]"
-python -m pytest
+pip install -e .
 ```
+---
 
-The conda environment file can be used to create a consistent local scientific
-Python environment before installing the package:
+## Quick start
 
-```bash
-conda env create -f environment.yml
-conda activate ld-chem
-```
-
-The editable pip install remains the preferred way to install LD-Chem during
-development because it exercises the same package metadata used by CI.
-
-## Quick Start
-
-This is a lightweight smoke-test style example. It is intended to demonstrate
-the package interface with a small synthetic aerosol population, not to
-reproduce a full publication simulation.
+### Build a simple population using part2pop and run a parcel simulation
 
 ```python
-import pickle
-
-import numpy as np
-from part2pop.population import build_population
-
-from ld_chem import simulate_parcel
+from part2pop.population.builder import build_population
 
 pop_cfg = {
     "type": "binned_lognormals",
     "N": [1e9],
     "GMD": [150e-9],
     "GSD": [1.6],
-    "aero_spec_names": [["SO4", "OC"]],
+    "aero_spec_names": [["SO4","OC"]],
     "aero_spec_fracs": [[0.2, 0.8]],
     "N_bins": 20,
-    "N_sigmas": 5,
-}
-
-pop = build_population(pop_cfg)
+    "N_sigmas": 5
+    }
+pop = build_population(config)
 aero_spec_names = np.array([species.name for species in pop.species])
 aero_spec_masses = np.array(pop.spec_masses)
 num_concs = np.array(pop.num_concs)
-pHs = np.full(num_concs.shape[0], 4.5)
+pHs = np.random.normal(loc=4.5, scale=0.5, size=num_concs.shape[0])
 
 simulate_parcel(
-    aero_spec_names,
-    aero_spec_masses,
-    num_concs,
-    pHs,
-    z_start=0.0,
-    z_end=10.0,
-    dt=1.0,
-    updraft_velocity=0.5,
-    S0=0.85,
-    P0=101325.0,
-    T0=298.0,
-    radius_scale="log",
-    condensation=True,
-    cocondensation=False,
-    aq_chemistry=False,
-    gas_chemistry=False,
-    output_filename="trajectory.pkl",
-)
+    aero_spec_names, aero_spec_masses, num_concs, pHs,
+    z_start=0.0, z_end=1000.0, dt=1.0, updraft_velocity=0.5,
+    S0=0.85, P0=101325.0, T0=298.0, radius_scale='log',
+    gas_names=None, gas_concs=None, condensation = True, 
+    cocondensation = False, aq_chemistry = None, 
+    gas_chemistry = False, output_filename='trajectory.pkl')
 
-with open("trajectory.pkl", "rb") as f:
-    data = pickle.load(f)
-
-print(data.keys())
 ```
 
-Runnable cases are available under `cases/`.
+### Analyze and plot results
 
-## Repository Structure
+```python
+import matplotlib.pyplot as plt
+data=pickle.load(open('trajectory.pkl','rb'))
 
-```text
+plt.plot(data['S'], data['z'])
+plt.xlim(1.0,)
+plt.ylabel('altitude [m]')
+plt.xlabel('saturation ratio')
+plt.show()
+
+spec_idx = np.where(data['particle species']=='Dwet')[0][0]
+plt.plot(data['particles'][:,:,spec_idx], data['z'], '-r')
+plt.xscale('log')
+plt.xlabel('wet diameter [m]')
+plt.ylabel('altitude [m]')
+plt.show()
+
+```
+
+More examples are available under `examples/`.
+
+---
+
+## Repository structure
+
+```
 src/ld_chem/
     constants.py             # Physical constants
     gases.py                 # Trace gas representation
-    particles.py             # Particle species helpers
-    reactions.py             # Gas and aqueous reaction definitions
-    run.py                   # Simulation entry points
+    particles.py             # Definition of particle species
+    reactions.py             # Definition of gas and aqueous phase reactions
+    run.py                   # Sets up and runs simulations
     scenario.py              # Simulation setup
-    systems.py               # Solvers and state updates
-    utilities.py             # Runtime consistency checks
-    write_files.py           # Output writers
-    mechanisms/              # Default gas and aqueous reactions
-    processes/               # Differential equation definitions
+    systems.py               # Call solvers and update state
+    utilities.py             # Ensures mass balance during solving
+    write_files.py           # Writes backup files and outputs data
+    mechanisms/              # Defines gas and aqueous phase reactions
+    processes/               # Stores differential equation definitions
     species_data/            # Aerosol and gas species definitions
 
-cases/
-    basic_examples/          # Small instructional cases
-    hiscale_20160425/        # HISCALE April 25, 2016 research case scaffold
 ```
 
-`cases/` contains runnable LD-Chem cases, including small basic examples and larger research workflows.
+## Definitions of Chemical Mechanisms
 
-## Chemical Mechanisms
+LD-Chem was designed with flexible gas- and aqueous-phase chemistry definitions. Both aqueous and gas-phase mechanisms are defined in simple data format files, allowing easy customization and extension.
 
-LD-Chem uses plain data files for default aqueous- and gas-phase mechanisms:
+### Aqueous-Phase Reactions
 
-- `src/ld_chem/mechanisms/aq_reactions.dat`
-- `src/ld_chem/mechanisms/gas_reactions.dat`
+The default aqueous-phase reactions are defined in `src/ld_chem/mechanisms/aq_reactions.dat` with the following columns:
 
-Custom mechanisms can be supplied by passing `mechanism_data_path` to the run
-functions. The custom directory should contain the same expected mechanism file
-names.
+| Column | Description | Unit |
+|--------|-------------|------|
+| `reactants` | Comma-separated list of reactant species | - |
+| `products` | Comma-separated list of product species | - |
+| `rate` | Pre-exponential rate constant | mol/m³^(1-n)/s |
+| `-Ea/R` | Negative activation energy divided by gas constant | K |
+| `group` | Reaction classification/mechanism name | - |
 
-Default species data are stored in:
+The temperature-dependent reaction rate is calculated as:
 
-- `src/ld_chem/species_data/aero_data.dat`
-- `src/ld_chem/species_data/gas_data.dat`
+$$k(T) = k_0 \cdot \exp\left(\frac{-E_a}{R}\left(\frac{1}{T} - \frac{1}{298}\right)\right)$$
 
-## Reproducibility and Data
+Default aqueous chemistry groups include:
+- `sulfate` - SO₂ and sulfuric acid chemistry
+- `ammonium` - Ammonia and ammonium equilibria
+- `nitrate` - Nitrogen oxide chemistry
+- `IEPOX` - IEPOX secondary organic aerosol reactions
 
-This repository bundles source code, tests, cases, default mechanisms, and
-small species/mechanism data files needed by the package. It does not bundle an
-unpublished paper-specific dataset.
+### Gas-Phase Reactions
 
-For a publication release, paper-specific input datasets and large generated
-outputs should be archived separately and cited through the manuscript Data
-Availability statement. Final DOI or accession values should be added to the
-manuscript and release notes only after they are minted by the selected archive.
+Gas-phase reactions are defined in `src/ld_chem/mechanisms/gas_reactions.dat` with the following columns:
 
-## Citation
+| Column | Description | Unit |
+|--------|-------------|------|
+| `reactants` | Comma-separated list of reactant species | - |
+| `products` | Comma-separated list of product species | - |
+| `rate` | Pre-exponential rate constant | (molec/cm³)^(1-n)/s |
+| `high_P_limit` | High pressure limit (Troe reactions only) | (molec/cm³)^(1-n)/s |
+| `T_dependence` | Temperature dependence parameter; equal to $-E_a/R$ for Arrhenius-type and $n$ for power-law type | K or dimensionless |
+| `form` | Functional form of temperature dependence | - |
 
-See `CITATION.cff` for software citation metadata. A final software DOI should
-be added there after an official release DOI is minted.
+Four temperature-dependent rate forms are supported:
+
+- **`exp`**: Arrhenius-like temperature dependence 
+
+$$k(T) = k_0 \cdot \exp\left(\frac{-E_a}{RT}\right)$$
+
+- **`power`**: Power-law temperature dependence
+
+  $$k(T) = k_0 \cdot \left(\frac{T}{300}\right)^n$$
+
+- **`troe`**: Troe Three-Parameter Fall-off Region (pressure-dependent bimolecular reactions)
+  Accounts for N₂/H₂O collision broadening and high-pressure limits
+
+- **`HO2_water_enhancement`**: Water-enhanced HO₂ self-reaction specific to atmospheric conditions
+
+  $$k = (k_1 + k_2) \cdot \left(1 + 8.4 \times 10^{-4} [H_2O] \exp(2200/T)\right)$$
+
+### Custom Mechanisms
+
+There are two ways to define custom aqueous- or gas-phase chemical mechanisms:
+
+**Option 1: Edit the default mechanism files**
+
+Modify the default mechanism files in `src/ld_chem/mechanisms/`:
+1. Edit `aq_reactions.dat` and/or `gas_reactions.dat` directly
+2. Add or remove reactions and assign them to group names
+3. Include the group names in a list assigned to the `aq_chemistry` and/or `gas_chemistry` arguments when running a simulation
+
+**Option 2: Create custom mechanism files and specify the path**
+
+Create your own mechanism files and point the model to them:
+1. Create new `aq_reactions.dat` and/or `gas_reactions.dat` files with your custom reactions
+2. Pass the directory path to the `mechanism_data_path` argument when running a simulation
+3. This allows you to maintain multiple mechanism configurations without modifying the source code. It should be noted that `aq_reactions.dat` and `gas_reactions.dat` are read using the same `mechanism_data_path`.
+
+Example using Option 1:
+```python
+from ld_chem import simulate_parcel
+
+# define aerosol properties (single organic particle)
+aero_spec_names=[['OC']]
+aero_spec_masses=[[1.0]]
+num_concs=[1e6]
+pHs=[3.0]
+
+# Run a parcel simulation with the default sulfate mechanisms
+simulate_parcel(
+    aero_spec_names, aero_spec_masses, num_concs, pHs,
+    aq_chemistry=['sulfate'],
+    gas_chemistry=True,
+    output_filename='trajectory.pkl'
+)
+```
+
+Example using Option 2:
+```python
+from ld_chem import simulate_parcel
+
+# define aerosol properties (single organic particle)
+aero_spec_names=[['OC']]
+aero_spec_masses=[[1.0]]
+num_concs=[1e6]
+pHs=[3.0]
+
+# Point to custom mechanism directory
+simulate_parcel(
+    aero_spec_names, aero_spec_masses, num_concs, pHs,
+    mechanism_data_path='/path/to/custom/mechanisms/',
+    aq_chemistry=['custom_group_1'],
+    gas_chemistry=True,
+    output_filename='trajectory.pkl'
+)
+``` 
+
+---
 
 ## License
 
-License text is not currently included in this repository. Before publication
-release, add the project license file and ensure package metadata matches it.
+See the `LICENSE` file in this repository.
