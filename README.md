@@ -8,8 +8,7 @@ processes in individual particles. It supports adiabatic parcel simulations and
 trajectory-driven simulations using time series of position, saturation ratio,
 temperature, pressure, and trace gas concentrations when available.
 
-The LD-Chem model is an extension of the Lagrangian Droplets model, which can be found at https://github.com/lfierce2/LagrangianDroplets/.
-
+The LD-Chem model is an extension of the Lagrangian Droplets model, which can be found at https://github.com/pnnl/lagrangian-droplets
 
 ## Features
 
