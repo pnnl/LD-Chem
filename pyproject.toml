@@ -33,7 +33,7 @@ dependencies = [
     "pyyaml",
     "mat73",
     "setuptools",
-    "part2pop==1.0.0"
+    "part2pop @ git+https://github.com/pnnl/part2pop.git@main"
 ]
 
 [project.optional-dependencies]
