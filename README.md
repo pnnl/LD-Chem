@@ -7,7 +7,8 @@ processes in individual particles. It supports adiabatic parcel simulations and
 trajectory-driven simulations using time series of position, saturation ratio,
 temperature, pressure, and trace gas concentrations when available.
 
-The LD-Chem model is an extension of the Lagrangian Droplets model, which can be found at https://github.com/pnnl/lagrangian-droplets
+The LD-Chem model is an extension of the Lagrangian Droplets model:
+https://github.com/pnnl/lagrangian-droplets.
 
 ## Features
 
@@ -26,22 +27,24 @@ LD-Chem can be installed from a local clone of the repository. We recommend usin
 git clone https://github.com/pnnl/LD-Chem.git
 cd LD-Chem
 
-conda env create -f environment.yml 
+conda env create -f environment.yml
 conda activate ld-chem
 
 python -m pip install -e .
+python -m pytest
 ```
 
 The editable install keeps the local source tree connected to the installed package, so updates to the code are available without reinstalling.
 
 ## Quick Start
 
-This simple test builds a population with part2pop and runs an adibatic prcel simulation. It is intended to demonstrate
+This simple test builds a population with part2pop and runs an adiabatic parcel simulation. It is intended to demonstrate
 the package interface with a small synthetic aerosol population, not to
 reproduce a full publication simulation.
 
 
 ### Build particle population and run parcel case
+
 ```python
 import numpy as np
 from part2pop.population.builder import build_population
@@ -56,13 +59,14 @@ pop_cfg = {
     "aero_spec_names": [["SO4","OC"]],
     "aero_spec_fracs": [[0.2, 0.8]],
     "N_bins": 20,
-    "N_sigmas": 5
-    }
-pop = build_population(config)
+    "N_sigmas": 5,
+}
+
+pop = build_population(pop_cfg)
 aero_spec_names = np.array([species.name for species in pop.species])
 aero_spec_masses = np.array(pop.spec_masses)
 num_concs = np.array(pop.num_concs)
-pHs = np.random.normal(loc=4.5, scale=0.5, size=num_concs.shape[0])
+pHs = np.full(num_concs.shape[0], 4.5)
 
 simulate_parcel(
     aero_spec_names, aero_spec_masses, num_concs, pHs,
@@ -77,9 +81,11 @@ simulate_parcel(
 ### Analyze and plot results
 ```python
 import matplotlib.pyplot as plt
+import numpy as np
 import pickle
 
-data=pickle.load(open('trajectory.pkl','rb'))
+with open("trajectory.pkl", "rb") as f:
+    data = pickle.load(f)
 
 plt.plot(data['S'], data['z'])
 plt.xlim(1.0,)
@@ -236,15 +242,25 @@ simulate_parcel(
 ## Reproducibility and Data
 
 This repository bundles source code, tests, cases, default mechanisms, and
-small species/mechanism data files needed by the package. It does not bundle an
-unpublished paper-specific dataset.
+small species/mechanism data files needed by the package. It does not bundle an unpublished paper-specific dataset.
 
 For a publication release, paper-specific input datasets and large generated
 outputs should be archived separately and cited through the manuscript Data
 Availability statement. Final DOI or accession values should be added to the
 manuscript and release notes only after they are minted by the selected archive.
 
+## Versioning
+
+LD-Chem uses calendar-based release tags of the form `vYYYY.N` for citable
+research-software snapshots. These release numbers do not imply
+semantic-versioning compatibility guarantees. Changes affecting scientific
+results, inputs, outputs, dependencies, or public APIs are documented in the
+release notes.
+
+## Citation
+
+See `CITATION.cff` for software citation metadata.
+
 ## License
 
-License text is not currently included in this repository. Before publication
-release, add the project license file and ensure package metadata matches it.
+LD-Chem is distributed under the BSD-2-Clause license. See `LICENSE.txt`.

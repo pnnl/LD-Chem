@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ld-chem"
-version = "0.1.0"
+version = "2026.0"
 description = "Lagrangian Droplets with Chemistry Model"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,19 +33,20 @@ dependencies = [
     "pyyaml",
     "mat73",
     "setuptools",
-    "part2pop @ git+https://github.com/pnnl/part2pop.git@main"
+    "part2pop==1.0.0"
 ]
 
 [project.optional-dependencies]
+test = [
+    "pytest>=6.0",
+    "pytest-cov>=4",
+]
+
 dev = [
     "pytest>=6.0",
     "pytest-cov",
     "black",
     "flake8",
-]
-test = [
-    "pytest>=6.0",
-    "pytest-cov>=4",
 ]
 docs = [
     "sphinx",
