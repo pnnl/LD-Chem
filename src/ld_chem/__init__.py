@@ -9,7 +9,7 @@ atmospheric microphysics processes.
 @author: fier887
 """
 
-__version__ = "0.1.0"
+__version__ = "2026.0"
 __author__ = "Laura Fierce"
 __email__ = "laura.fierce@pnnl.gov"
 

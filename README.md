@@ -27,7 +27,7 @@ LD-Chem can be installed from a local clone of the repository. We recommend usin
 git clone https://github.com/pnnl/LD-Chem.git
 cd LD-Chem
 
-conda env create -f environment.yml 
+conda env create -f environment.yml
 conda activate ld-chem
 
 python -m pip install -e .
@@ -60,7 +60,8 @@ pop_cfg = {
     "aero_spec_fracs": [[0.2, 0.8]],
     "N_bins": 20,
     "N_sigmas": 5,
-    }
+}
+
 pop = build_population(pop_cfg)
 aero_spec_names = np.array([species.name for species in pop.species])
 aero_spec_masses = np.array(pop.spec_masses)

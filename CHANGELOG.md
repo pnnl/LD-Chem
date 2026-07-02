@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2026.0
 
 - Prepare repository metadata and documentation for public LD-Chem release.
 - Align package identity around `LD-Chem`, `ld_chem`, and the public `pnnl/LD-Chem` repository.

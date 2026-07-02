@@ -2,23 +2,18 @@
 
 ## Install
 
-From a clean clone:
+From a clean clone, create and activate the conda environment, then install
+LD-Chem locally in editable mode:
 
 ```bash
 git clone https://github.com/pnnl/LD-Chem.git
 cd LD-Chem
+conda env create -f environment.yml
+conda activate ld-chem
 python -m pip install -e .
 ```
 
-Optional conda bootstrap:
-
-```bash
-conda env create -f environment.yml
-conda activate ld-chem
-```
-
-The editable pip install is the preferred development and testing path because
-it uses the package metadata in `pyproject.toml`.
+The conda environment provides the scientific Python and test dependencies used for local development. The editable pip install keeps the local source tree connected to the installed package and uses the package metadata in `pyproject.toml`.
 
 ## Tests
 
