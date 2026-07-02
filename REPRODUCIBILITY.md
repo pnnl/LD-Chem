@@ -7,7 +7,7 @@ From a clean clone:
 ```bash
 git clone https://github.com/pnnl/LD-Chem.git
 cd LD-Chem
-python -m pip install -e ".[test]"
+python -m pip install -e .
 ```
 
 Optional conda bootstrap:
