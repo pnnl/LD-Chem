@@ -51,11 +51,19 @@ class TraceGasPopulation:
 
 def retrieve_gas_species(name, specdata_path='../species_data/'):
     gas_datafile = specdata_path + 'gas_data.dat'
+    alpha = molar_mass = H0 = H_exp = None
     with open(gas_datafile) as data_file:
         for line in data_file:
-            if name == line.split()[0]:
-                name_in_file,alpha,molar_mass,H0,H_exp = line.split()
-    
+            fields = line.split()
+            if fields and name == fields[0]:
+                name_in_file,alpha,molar_mass,H0,H_exp = fields
+
+    if alpha is None:
+        raise ValueError(
+            f"Unknown gas species '{name}': no matching entry found in "
+            f"{gas_datafile}. Add it to the species data file or check for "
+            f"a typo in gas_names.")
+
     return GasSpecies(
         name=name,
         alpha=float(alpha),
