@@ -24,11 +24,19 @@ class AerosolSpecies:
 
 def retrieve_one_species(name, specdata_path='species_data/',surface_tension=0.072):
     aero_datafile = specdata_path + 'aero_data.dat'
+    name_in_file = None
     with open(aero_datafile) as data_file:
         for line in data_file:
-            if line.split()[0]==name:
-                name_in_file,density,ions_in_solution,molar_mass,kappa = line.split()
-    
+            fields = line.split()
+            if fields and fields[0]==name:
+                name_in_file,density,ions_in_solution,molar_mass,kappa = fields
+
+    if name_in_file is None:
+        raise ValueError(
+            f"Unknown aerosol species '{name}': no matching entry found in "
+            f"{aero_datafile}. Add it to the species data file or check for "
+            f"a typo in aero_spec_names.")
+
     return AerosolSpecies(
         name=name_in_file,
         density=float(density),
@@ -64,9 +72,3 @@ def get_particle_concentrations(aerosol_population):
         concs[:,ii] = (spec_masses[:,ii]/spec.molar_mass)/water_volumes # mol/m^3
     return concs
 '''
-
-    
-    
-    
-    
-    
