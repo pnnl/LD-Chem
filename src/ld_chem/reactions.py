@@ -112,6 +112,15 @@ def make_AqReactions(chemistry=None, mechanism_data_path='mechanisms/'):
 
 
 def make_GasReactions(chemistry=None, mechanism_data_path='mechanisms/'):
+    if chemistry is not None:
+        raise NotImplementedError(
+            "make_GasReactions() received chemistry=%r, but group-based "
+            "filtering of gas-phase reactions is not implemented: "
+            "gas_reactions.dat has no 'group' column (unlike aq_reactions.dat, "
+            "which make_AqReactions() filters on), so there is currently no way "
+            "to select a subset of gas-phase reactions."
+            % (chemistry,))
+
     reaction_datafile = mechanism_data_path + 'gas_reactions.dat'
     Nreactions=0
     with open(reaction_datafile) as data_file:
