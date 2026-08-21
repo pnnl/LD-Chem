@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Exercise the unpinned part2pop dependency once a week.
     - cron: "23 8 * * 1"
   workflow_dispatch:
 
