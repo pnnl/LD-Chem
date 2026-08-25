@@ -50,6 +50,10 @@ jobs:
         if: matrix.python-version != '3.11'
         run: python -m pytest -m "not integration" tests/unit
 
+      - name: Run integration tests
+        if: matrix.python-version != '3.11'
+        run: python -m pytest tests/integration
+
       - name: Run unit tests with coverage
         if: matrix.python-version == '3.11'
         run: >-
