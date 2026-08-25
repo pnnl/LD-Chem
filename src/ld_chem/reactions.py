@@ -75,7 +75,7 @@ class AqueousReactions:
     
 @dataclass
 class GasReactions:
-    reactions: Tuple[AqReaction, ...]
+    reactions: Tuple[GasReactions, ...]
     ids: Tuple[int, ...]
     
 def make_AqReactions(chemistry=None, mechanism_data_path='mechanisms/'):
