@@ -162,44 +162,81 @@ def update_particle_population(
     
     return ParcelState_Next, feedbacks
 
-def update_air(t2, ParcelState_0, processes, feedbacks, dt, 
-               gas_reactions=None, rtol=1e-10, atol=1e-10):
+def update_air(
+    t2,
+    ParcelState_0,
+    processes,
+    feedbacks,
+    dt,
+    gas_reactions=None,
+    rtol=1e-10,
+    atol=1e-10,
+):
     
     T0 = ParcelState_0.T
     P0 = ParcelState_0.P
-    S0 = ParcelState_0.S # put this into gas mixture?   
+    S0 = ParcelState_0.S
     z0 = ParcelState_0.z
-    wv0 = air_thermo.S_to_wv(S0,T0,P0) # kg/kg
+    wv0 = air_thermo.S_to_wv(S0, T0, P0)
     
-    dz_dt=0
-    dT_dt=0
-    dP_dt=0
-    dS_dt=0
-    dwv_dt=0
+    dz_dt = 0
+    dT_dt = 0
+    dP_dt = 0
+    dS_dt = 0
+    dwv_dt = 0
     ParcelState_Next = ParcelState_0.clone_detached()
 
     if processes.condensation:
-        state0 = np.array([z0,T0,P0,S0,wv0])
+        state0 = np.array([z0, T0, P0, S0, wv0])
+
         if ParcelState_0.w:
-            rhs = lambda t, state: air_thermo.dstate_dt(state, ParcelState_0.w, feedbacks.dwc_dt)
-            ode15s = ode(rhs).set_integrator('lsoda', method='bdf', rtol=rtol, atol=atol, nsteps=5000)
+            if dt <= 0:
+                raise ValueError(
+                    "dt must be positive when condensation feedback is enabled"
+                )
+
+            # feedbacks.dwc_dt is the total condensed-water mass change
+            # accumulated over the preceding timestep (kg/m^3).
+            # air_thermo.dstate_dt() requires a rate (kg/m^3/s).
+            condensed_water_rate = feedbacks.dwc_dt / dt
+
+            rhs = lambda t, state: air_thermo.dstate_dt(
+                state,
+                ParcelState_0.w,
+                condensed_water_rate,
+            )
+
+            ode15s = ode(rhs).set_integrator(
+                "lsoda",
+                method="bdf",
+                rtol=rtol,
+                atol=atol,
+                nsteps=5000,
+            )
             ode15s.set_initial_value(state0, 0.0)
-            state_next = ode15s.integrate(ode15s.t+dt)
+            state_next = ode15s.integrate(ode15s.t + dt)
+
             ParcelState_Next.z = state_next[0]
             ParcelState_Next.T = state_next[1]
             ParcelState_Next.P = state_next[2]
             ParcelState_Next.S = state_next[3]
-            ParcelState_Next.wv = state_next[4] 
+            ParcelState_Next.wv = state_next[4]
+
         else:
             # assumes that pressure is constant over time step
-            X0 = (S0*water_uptake.es(T0-273.15))/(c.R*T0) # mol/m^3
-            X_next = X0 + (feedbacks.dwv_dt/c.Mw) # change in water vapor moles, mol/m^3
-            Ph2o_next = X_next*c.R*T0
-            dT_dt = -1.0*(c.L/c.Cp)*feedbacks.dwv_dt
-            S_next = Ph2o_next/water_uptake.es((T0+dT_dt)-273.15)
-            ParcelState_Next.T = T0+dT_dt
+            X0 = (S0 * water_uptake.es(T0 - 273.15)) / (c.R * T0)
+            X_next = X0 + (feedbacks.dwv_dt / c.Mw)
+            Ph2o_next = X_next * c.R * T0
+            dT_dt = -1.0 * (c.L / c.Cp) * feedbacks.dwv_dt
+            S_next = Ph2o_next / water_uptake.es((T0 + dT_dt) - 273.15)
+
+            ParcelState_Next.T = T0 + dT_dt
             ParcelState_Next.S = S_next
-            ParcelState_Next.wv = air_thermo.S_to_wv(S_next, T0+dT_dt, P0)
+            ParcelState_Next.wv = air_thermo.S_to_wv(
+                S_next,
+                T0 + dT_dt,
+                P0,
+            )
     
     if processes.cocondensation:
         if ParcelState_Next.gas:
