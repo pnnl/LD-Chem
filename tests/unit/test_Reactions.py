@@ -224,3 +224,45 @@ def test_make_gas_reactions():
         assert isinstance(reaction.high_P_limit, float)
         assert isinstance(reaction.T_dependence, float)
         assert reaction.form in ["power", "exp", "troe", "HO2_water_enhancement"]
+
+def test_make_gas_reactions_rejects_chemistry_argument(tmp_path):
+    with pytest.raises(NotImplementedError, match="group-based filtering"):
+        make_GasReactions(
+            chemistry=["sulfate"],
+            mechanism_data_path=str(tmp_path) + "/",
+        )
+
+
+def test_make_gas_reactions_rejects_unknown_form(tmp_path):
+    (tmp_path / "gas_reactions.dat").write_text(
+        "reactants products rate high_P_limit T_dependence form\n"
+        "A B 1.0 0.0 0.0 unsupported\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Unsupported gas reaction form"):
+        make_GasReactions(mechanism_data_path=str(tmp_path) + "/")
+
+
+def test_make_gas_reactions_rejects_malformed_rows(tmp_path):
+    (tmp_path / "gas_reactions.dat").write_text(
+        "reactants products rate high_P_limit T_dependence form\n"
+        "A B 1.0\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="expected 6 fields"):
+        make_GasReactions(mechanism_data_path=str(tmp_path) + "/")
+
+
+def test_make_gas_reactions_header_only_returns_empty(tmp_path):
+    (tmp_path / "gas_reactions.dat").write_text(
+        "reactants products rate high_P_limit T_dependence form\n",
+        encoding="utf-8",
+    )
+
+    gas_reactions = make_GasReactions(
+        mechanism_data_path=str(tmp_path) + "/")
+
+    assert gas_reactions.reactions is None
+    assert gas_reactions.ids is None
