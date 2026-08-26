@@ -75,8 +75,8 @@ class AqueousReactions:
     
 @dataclass
 class GasReactions:
-    reactions: Tuple[GasReactions, ...]
-    ids: Tuple[int, ...]
+    reactions: Tuple[GasReaction, ...] | None
+    ids: Tuple[int, ...] | None
     
 def make_AqReactions(chemistry=None, mechanism_data_path='mechanisms/'):
     reaction_datafile = mechanism_data_path + 'aq_reactions.dat'
@@ -110,8 +110,7 @@ def make_AqReactions(chemistry=None, mechanism_data_path='mechanisms/'):
     return AqueousReactions(reactions=reactions, ids=ids)
 
 
-
-def make_GasReactions(chemistry=None, mechanism_data_path='mechanisms/'):
+def make_GasReactions(chemistry=None, mechanism_data_path="mechanisms/"):
     if chemistry is not None:
         raise NotImplementedError(
             "make_GasReactions() received chemistry=%r, but group-based "
@@ -119,47 +118,74 @@ def make_GasReactions(chemistry=None, mechanism_data_path='mechanisms/'):
             "gas_reactions.dat has no 'group' column (unlike aq_reactions.dat, "
             "which make_AqReactions() filters on), so there is currently no way "
             "to select a subset of gas-phase reactions."
-            % (chemistry,))
+            % (chemistry,)
+        )
 
-    reaction_datafile = mechanism_data_path + 'gas_reactions.dat'
-    valid_forms = {'power', 'exp', 'troe', 'HO2_water_enhancement'}
+    reaction_datafile = mechanism_data_path + "gas_reactions.dat"
+    valid_forms = {
+        "power",
+        "exp",
+        "troe",
+        "HO2_water_enhancement",
+    }
+
     reactions = []
     ids = []
 
-    # gas_reactions.dat contains a one-line header.
-    next(data_file, None)
-    for line_number, line in enumerate(data_file, start=2):
-        fields = line.split()
-        if not fields:
-            continue
-        if len(fields) != 6:
-            raise ValueError(
-                f"Malformed gas reaction in {reaction_datafile} at "
-                f"line {line_number}: expected 6 fields, found "
-                f"{len(fields)}.")
+    with open(reaction_datafile) as data_file:
+        # gas_reactions.dat contains a one-line header.
+        next(data_file, None)
 
-        reactants,products,rate,highP_limit,T_dependence,form = fields
-        if form not in valid_forms:
-            raise ValueError(
-                f"Unsupported gas reaction form '{form}' in "
-                f"{reaction_datafile} at line {line_number}.")
+        for line_number, line in enumerate(data_file, start=2):
+            fields = line.split()
 
-        try:
-            one_reaction = GasReaction(
-                reactants=reactants.split(','),
-                products=products.split(','),
-                rate0=float(rate),
-                high_P_limit=float(highP_limit),
-                T_dependence=float(T_dependence),
-                form=form)
-        except ValueError as exc:
-            raise ValueError(
-                f"Invalid numeric value in gas reaction at "
-                f"{reaction_datafile}:{line_number}.") from exc
+            if not fields:
+                continue
 
-        ids.append(len(reactions))
-        reactions.append(one_reaction)
+            if len(fields) != 6:
+                raise ValueError(
+                    f"Malformed gas reaction in {reaction_datafile} at "
+                    f"line {line_number}: expected 6 fields, found "
+                    f"{len(fields)}."
+                )
+
+            (
+                reactants,
+                products,
+                rate,
+                highP_limit,
+                T_dependence,
+                form,
+            ) = fields
+
+            if form not in valid_forms:
+                raise ValueError(
+                    f"Unsupported gas reaction form '{form}' in "
+                    f"{reaction_datafile} at line {line_number}."
+                )
+
+            try:
+                one_reaction = GasReaction(
+                    reactants=reactants.split(","),
+                    products=products.split(","),
+                    rate0=float(rate),
+                    high_P_limit=float(highP_limit),
+                    T_dependence=float(T_dependence),
+                    form=form,
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid numeric value in gas reaction at "
+                    f"{reaction_datafile}:{line_number}."
+                ) from exc
+
+            ids.append(len(reactions))
+            reactions.append(one_reaction)
 
     if not reactions:
         return GasReactions(reactions=None, ids=None)
-    return GasReactions(reactions=reactions, ids=ids)
+
+    return GasReactions(
+        reactions=tuple(reactions),
+        ids=tuple(ids),
+    )
