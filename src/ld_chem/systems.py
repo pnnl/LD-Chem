@@ -182,8 +182,13 @@ def update_air(t2, ParcelState_0, processes, feedbacks, dt,
         state0 = np.array([z0,T0,P0,S0,wv0])
         if ParcelState_0.w:
             # feedbacks.dwc_dt is the total condensed water mass accumulated over
-            # the previous timestep (kg/m^3), not a per-second rate
-            rhs = lambda t, state: air_thermo.dstate_dt(state, ParcelState_0.w, feedbacks.dwc_dt/dt)
+    # the previous timestep (kg/m^3), not a per-second rate.
+    if dt <= 0:
+        raise ValueError(
+            "dt must be positive when condensation feedback is enabled")
+    condensed_water_rate = feedbacks.dwc_dt / dt
+    rhs = lambda t, state: air_thermo.dstate_dt(
+        state, ParcelState_0.w, condensed_water_rate)
             ode15s = ode(rhs).set_integrator('lsoda', method='bdf', rtol=rtol, atol=atol, nsteps=5000)
             ode15s.set_initial_value(state0, 0.0)
             state_next = ode15s.integrate(ode15s.t+dt)
